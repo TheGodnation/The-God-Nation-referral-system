@@ -2118,11 +2118,11 @@ model LeadershipCollaborationConversation {
 // list. Text-only — no MessageAttachment equivalent, no Phase 3M.8C
 // analog.
 model LeadershipCollaborationMessage {
-  id             String   @id @default(uuid())
-  conversationId String
-  senderPersonId String
-  body           String
-  createdAt      DateTime @default(now())
+  id               String    @id @default(uuid())
+  conversationId   String
+  senderPersonId   String
+  body             String
+  createdAt        DateTime  @default(now())
   // English <-> French, written once after the message is posted (like the chats): who wrote in which language, and
   // the other-language text the leaders of the other language read.
   detectedLanguage Language?
@@ -4534,23 +4534,22 @@ model DuplicateDismissal {
   @@unique([personAId, personBId])
 }
 
-
 // ---- Weekly teaching rota (the leaders who teach 15 minutes every week) ----
 // One row of settings: the rota is invisible to the teachers until the central admin switches it on.
 // The names and the teaching texts are NEVER in the code (the repository is public): the central admin loads them
 // from a private plan file (lib/teachingRota.ts, loadPlan).
 model TeachingSettings {
-  id            String   @id @default("main")
-  enabled       Boolean  @default(false)
+  id                String   @id @default("main")
+  enabled           Boolean  @default(false)
   // The Monday the first week starts (stored as a date at UTC midnight).
-  startDate     DateTime
+  startDate         DateTime
   // The central admin has read the French and approves it (needed before a French-speaking teacher is shown anything).
-  frenchChecked Boolean  @default(false)
+  frenchChecked     Boolean  @default(false)
   // The group whose members rate the teachings (the Leadership group). Empty = the teachers themselves and the central admin.
   ratersCommunityId String?
   // "How to teach your 15 minutes" and the one-line meaning of a Key and a Right, English and French (JSON: { en: {...}, fr: {...} }).
-  guide         Json?
-  updatedAt     DateTime @updatedAt
+  guide             Json?
+  updatedAt         DateTime @updatedAt
 }
 
 // One topic (a Key or a Right) with its guide text. Every week each teacher moves to the next topic in the list.
@@ -4588,15 +4587,15 @@ model TeachingTeacher {
 
 // One member's rating of one teaching (a teacher's slot in one week). A rating can be changed while the window is open.
 model TeachingRating {
-  id             String   @id @default(uuid())
-  teacherId      String
+  id            String   @id @default(uuid())
+  teacherId     String
   // The Monday of the week of the teaching (a date at UTC midnight).
-  weekStart      DateTime
-  raterPersonId  String
+  weekStart     DateTime
+  raterPersonId String
   // EXCELLENT | VERY_GOOD | GOOD | KEEP_GROWING
-  level          String
-  createdAt      DateTime @default(now())
-  updatedAt      DateTime @updatedAt
+  level         String
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
 
   @@unique([teacherId, weekStart, raterPersonId])
   @@index([teacherId, weekStart])
@@ -4693,23 +4692,28 @@ enum TeachingPartText {
 }
 
 model TeachingRecordingPart {
-  id          String           @id @default(uuid())
-  recordingId String
+  id                String           @id @default(uuid())
+  recordingId       String
   // 1 is the first added part (the recording itself is the part before it).
-  position    Int
-  storageKey  String           @unique
-  mimeType    String
-  byteSize    Int
-  textState   TeachingPartText @default(WAITING)
-  attempts    Int              @default(0)
-  createdAt   DateTime         @default(now())
+  position          Int
+  storageKey        String           @unique
+  mimeType          String
+  byteSize          Int
+  textState         TeachingPartText @default(WAITING)
+  attempts          Int              @default(0)
+  // Each part has its own text: written from its audio, corrected by the teacher in the language spoken, approved, then the other
+  // language is made automatically. Posted as its own voice note, in order, with its text.
+  transcript        String?
+  translated        String?
+  spokenLanguage    Language?
+  approvedAt        DateTime?
+  translateAttempts Int              @default(0)
+  createdAt         DateTime         @default(now())
 
   recording TeachingRecording @relation(fields: [recordingId], references: [id], onDelete: Cascade)
 
   @@unique([recordingId, position])
 }
-
-
 
 // A voice teaching the central admin recorded ahead of time ("Send later") to post in a group at a time they chose. The words are
 // written from the recording, corrected and approved by the author in their own language, and the other language is made
@@ -4764,7 +4768,6 @@ model ScheduledTeachingClip {
   @@unique([teachingId, position])
 }
 
-
 // A member the central admin allowed to teach in a group (voice teachings, Send later) as the central admin does: no topic, no
 // weekly slot, no rating. Each one has teaching days in that group (every week on a weekday, or on one date).
 model GroupTeacher {
@@ -4779,14 +4782,14 @@ model GroupTeacher {
 }
 
 model TeachingDay {
-  id             String       @id @default(uuid())
+  id             String   @id @default(uuid())
   groupTeacherId String
   // Every week on this weekday (1 Monday to 7 Sunday), or on one date (Cameroon date, YYYY-MM-DD). Exactly one of the two.
   dayOfWeek      Int?
   date           String?
   // Minutes after midnight, Cameroon time.
   startMinute    Int
-  createdAt      DateTime     @default(now())
+  createdAt      DateTime @default(now())
 
   teacher GroupTeacher @relation(fields: [groupTeacherId], references: [id], onDelete: Cascade)
 

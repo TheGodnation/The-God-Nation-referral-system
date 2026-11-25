@@ -11,7 +11,7 @@ import { recordAudit } from '../lib/audit';
 import { LEVELS, RotaError, addTeacher, adminOverview, loadPlan, matchTeachers, ratingDetail, saveTopic, searchGroups, searchMembers, teacherView, topicPreview, updateSettings, updateTeacher } from '../lib/teachingRota';
 import { finishState, finishTeaching, rate } from '../lib/teachingCards';
 import { sendAssignmentsNow, sendHowToNow } from '../lib/teachingReminders';
-import { addRecordingPart, approveTranscript, authorizeRecordingUpload, deleteRecording, recordingsFor, retryTranscript, saveRecording, saveTranscript, RECORDING_MIMES } from '../lib/teachingRecordings';
+import { addRecordingPart, approvePart, approveTranscript, authorizeRecordingUpload, deletePart, deleteRecording, recordingsFor, retryPart, retryTranscript, savePartText, saveRecording, saveTranscript, RECORDING_MIMES } from '../lib/teachingRecordings';
 import { isFrench } from '../lib/privateNotice';
 
 // The weekly teaching rota. Two doors for the central admin (the admin dashboard and the National Coordinator's member
@@ -222,7 +222,7 @@ export const memberTeachingRotaRoutes = (() => {
     if (!parsed.success) return res.status(400).json({ error: 'That recording cannot be used.' });
     res.status(201).json(await saveRecording(req.member!.personId, parsed.data));
   }));
-  // Add more: another part after the first (kept, played one after the other, its words added to the text).
+  // The next part of the teaching (kept in order, with its own text to check and approve).
   router.post('/recordings/parts', leadershipMutationLimiter, requireCsrf, asyncHandler(async (req, res) => {
     const parsed = z.object({ weekStart: week, storageKey: z.string().min(1).max(300), mimeType: z.enum(RECORDING_MIMES), byteSize: z.number().int().positive() }).safeParse(req.body);
     if (!parsed.success) return res.status(400).json({ error: 'That recording cannot be used.' });
@@ -240,6 +240,25 @@ export const memberTeachingRotaRoutes = (() => {
   router.post('/recordings/:weekStart/retry', leadershipMutationLimiter, requireCsrf, asyncHandler(async (req, res) => {
     if (!week.safeParse(req.params.weekStart).success) return res.status(400).json({ error: 'Check the week.' });
     res.json(await retryTranscript(req.member!.personId, req.params.weekStart));
+  }));
+  // Each part after the first has its own text: correct it, approve it, try writing it again, or remove the part.
+  const partId = z.string().uuid();
+  router.put('/recordings/:weekStart/parts/:partId/transcript', leadershipMutationLimiter, requireCsrf, asyncHandler(async (req, res) => {
+    const parsed = z.object({ text: z.string().max(60000) }).safeParse(req.body);
+    if (!parsed.success || !week.safeParse(req.params.weekStart).success || !partId.safeParse(req.params.partId).success) return res.status(400).json({ error: 'Check the text and try again.' });
+    res.json(await savePartText(req.member!.personId, req.params.weekStart, req.params.partId, parsed.data.text));
+  }));
+  router.post('/recordings/:weekStart/parts/:partId/approve', leadershipMutationLimiter, requireCsrf, asyncHandler(async (req, res) => {
+    if (!week.safeParse(req.params.weekStart).success || !partId.safeParse(req.params.partId).success) return res.status(400).json({ error: 'Check the part.' });
+    res.json(await approvePart(req.member!.personId, req.params.weekStart, req.params.partId));
+  }));
+  router.post('/recordings/:weekStart/parts/:partId/retry', leadershipMutationLimiter, requireCsrf, asyncHandler(async (req, res) => {
+    if (!week.safeParse(req.params.weekStart).success || !partId.safeParse(req.params.partId).success) return res.status(400).json({ error: 'Check the part.' });
+    res.json(await retryPart(req.member!.personId, req.params.weekStart, req.params.partId));
+  }));
+  router.delete('/recordings/:weekStart/parts/:partId', leadershipMutationLimiter, requireCsrf, asyncHandler(async (req, res) => {
+    if (!week.safeParse(req.params.weekStart).success || !partId.safeParse(req.params.partId).success) return res.status(400).json({ error: 'Check the part.' });
+    res.json(await deletePart(req.member!.personId, req.params.weekStart, req.params.partId));
   }));
   router.delete('/recordings/:weekStart', leadershipMutationLimiter, requireCsrf, asyncHandler(async (req, res) => {
     if (!week.safeParse(req.params.weekStart).success) return res.status(400).json({ error: 'Check the week.' });

@@ -19,9 +19,10 @@
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
     <meta name="apple-mobile-web-app-title" content="The God Nation" />
     <!-- Rescue for a completely white page: if the app's own files cannot be loaded (an old saved copy of the
-         app on the phone points at files that no longer exist), forget the saved copy and load the page again,
-         once. If the page is still empty after 12 seconds, offer two buttons. Plain code on purpose: it must work
-         when the app itself cannot start. -->
+         app on the phone points at files that no longer exist), clear the saved copy and load the page again,
+         once. The app's background part is kept (only asked to update itself): removing it would also cut the
+         phone's notifications. If the page is still empty after 12 seconds, offer a Reload button. Plain code on
+         purpose: it must work when the app itself cannot start. -->
     <script>
       (function () {
         var KEY = 'godnation:rescued-at';
@@ -29,7 +30,7 @@
           var jobs = [];
           try {
             if (navigator.serviceWorker && navigator.serviceWorker.getRegistrations) {
-              jobs.push(navigator.serviceWorker.getRegistrations().then(function (rs) { return Promise.all(rs.map(function (r) { return r.unregister(); })); }));
+              jobs.push(navigator.serviceWorker.getRegistrations().then(function (rs) { return Promise.all(rs.map(function (r) { return r.update().catch(function () {}); })); }));
             }
             if (window.caches && caches.keys) {
               jobs.push(caches.keys().then(function (ks) { return Promise.all(ks.map(function (k) { return caches.delete(k); })); }));
@@ -50,7 +51,6 @@
             box.appendChild(b);
           }
           mk('Reload / Recharger', true, function () { location.reload(); });
-          mk('Fix and reload / Réparer', false, function () { forget().then(function () { location.reload(); }); });
           (document.body || document.documentElement).appendChild(box);
         }
         function rescue() {

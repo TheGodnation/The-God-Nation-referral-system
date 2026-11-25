@@ -40,6 +40,9 @@ describe('link previews', () => {
     // And a completely white page can rescue itself (forget the old saved copy, reload once, offer buttons).
     expect(res.text).toContain('white-page-help');
     expect(res.text).toContain('godnation:rescued-at');
+    // The rescue never removes the app's background part (that would cut the phone's notifications), and offers no "Fix" button.
+    expect(res.text).not.toContain('unregister');
+    expect(res.text).not.toContain('Réparer');
   });
 
   it('a French link gets the all-French card, an English link the all-English card', async () => {

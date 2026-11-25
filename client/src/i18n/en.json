@@ -6309,7 +6309,21 @@
     "part_n": "Part {{n}}",
     "add_to_teaching": "Add to my teaching",
     "parts_failed_one": "The words of one part could not be written. Tap \"Write the text again\", or type those words yourself.",
-    "parts_failed_other": "The words of {{count}} parts could not be written. Tap \"Write the text again\", or type those words yourself."
+    "parts_failed_other": "The words of {{count}} parts could not be written. Tap \"Write the text again\", or type those words yourself.",
+    "record_part": "Record part {{n}}",
+    "choose_file_part": "Or choose part {{n}} from my phone",
+    "use_as_part": "Use this as part {{n}}",
+    "guide_first": "Record your teaching in parts of about 5 minutes. Record part 1: its text will be written for you to check and approve. Then you record part 2, part 3, and so on, as many parts as you need.",
+    "guide_writing": "The text of part {{n}} is being written (a few minutes). You can already record part {{next}}.",
+    "guide_check": "Check and approve the text of part {{n}} above, then record part {{next}}.",
+    "guide_done": "✓ Part {{n}} is ready. Record part {{next}}, or stop here: every part is posted by itself, in order, at your teaching time.",
+    "remove_part": "Remove this part",
+    "confirm_remove_part": "Remove part {{n}}?",
+    "state_writing": "Writing the text",
+    "state_ready": "Check the text",
+    "state_failed": "Text not written",
+    "state_approved": "Approved",
+    "part_text_failed": "The text of this part could not be written. Tap \"Write the text again\", or type it yourself below."
   },
   "scheduledTeachings": {
     "title": "Scheduled teachings",

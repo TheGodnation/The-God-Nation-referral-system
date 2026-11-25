@@ -3,7 +3,7 @@ import { Readable } from 'stream';
 import { prisma } from '../lib/prisma';
 import { loadPlan, updateSettings, slotStart } from '../lib/teachingRota';
 import { postDueRatingCards } from '../lib/teachingCards';
-import { addRecordingPart, approveTranscript, authorizeRecordingUpload, deleteRecording, postDueRecordings, recordingsFor, retryPendingRecordings, retryTranscript, saveRecording, saveTranscript, transcribeRecording } from '../lib/teachingRecordings';
+import { addRecordingPart, approvePart, approveTranscript, authorizeRecordingUpload, deletePart, deleteRecording, postDueRecordings, recordingsFor, retryPart, retryPendingRecordings, retryTranscript, savePartText, saveRecording, saveTranscript, transcribeRecording } from '../lib/teachingRecordings';
 
 // A teaching recorded ahead of time: the text is written in the language spoken, the teacher corrects and approves it in that language,
 // the other language is made automatically, and the recording is posted in the teaching group by itself at the teacher's time.
@@ -238,33 +238,75 @@ describe('the time of the teaching', () => {
   });
 });
 
-describe('adding more to a recording (Add more)', () => {
+describe('a teaching in several parts (record part 1, then part 2, part 3…)', () => {
   const words = (text: string, lang = 'fr') => transcribeAudioOnly.mockResolvedValueOnce({ detectedLanguage: lang, transcript: text });
   const textReady = async (teacherId: string) => vi.waitFor(async () => expect((await prisma.teachingRecording.findFirstOrThrow({ where: { teacherId } })).status).toBe('TEXT_READY'));
+  const partsOf = async (personId: string) => (await recordingsFor(personId, BEFORE)).weeks[0].recording!.parts;
+  const partReady = async (personId: string, n: number) => vi.waitFor(async () => expect((await partsOf(personId))[n - 1]?.state).toBe('ready'));
 
-  it('keeps the first part, adds the next one after it, adds its words to the text and asks for approval again', async () => {
+  it('gives every part its own text to correct and approve, in order, as many parts as wanted, and the earlier parts stay approved', async () => {
     const { person, group, teacher } = await setUp();
     words('Première partie.');
     await saveRecording(person.id, { weekStart: WEEK, ...(await upload(group.id)) }, BEFORE);
     await textReady(teacher.id);
-    await approveTranscript(person.id, WEEK, BEFORE); // approved before the teacher decides to add more
-    await vi.waitFor(async () => expect((await prisma.teachingRecording.findFirstOrThrow({ where: { teacherId: teacher.id } })).translated).toBeTruthy());
+    await approveTranscript(person.id, WEEK, BEFORE);
 
-    words('Deuxième partie.');
-    const added = await addRecordingPart(person.id, { weekStart: WEEK, ...(await upload(group.id)) }, BEFORE);
-    expect(added.recording?.status).toBe('WRITING');
-    expect(added.recording?.parts).toHaveLength(2);
-    await textReady(teacher.id);
+    for (const [n, text] of [[2, 'Deuxième partie.'], [3, 'Troisième partie.'], [4, 'Quatrième partie.'], [5, 'Cinquième partie.']] as const) {
+      words(text);
+      const added = await addRecordingPart(person.id, { weekStart: WEEK, ...(await upload(group.id)) }, BEFORE);
+      expect(added.recording?.parts).toHaveLength(n);
+      expect(added.recording?.parts[n - 1]).toMatchObject({ n, state: 'writing' });
+      await partReady(person.id, n);
+      const part = (await partsOf(person.id))[n - 1];
+      expect(part.transcript).toBe(text); // its own text, not added to the first part's
+      // The teacher corrects it in their language, then approves it: the other language is made for that part.
+      await savePartText(person.id, WEEK, part.id!, `${text} Amen.`, BEFORE);
+      await approvePart(person.id, WEEK, part.id!, BEFORE);
+      await vi.waitFor(async () => expect((await partsOf(person.id))[n - 1]).toMatchObject({ state: 'approved', transcript: `${text} Amen.`, translated: 'The Lord is my shepherd.' }));
+    }
+    const all = await partsOf(person.id);
+    expect(all.map((p) => [p.n, p.state])).toEqual([[1, 'approved'], [2, 'approved'], [3, 'approved'], [4, 'approved'], [5, 'approved']]);
     const rec = await prisma.teachingRecording.findFirstOrThrow({ where: { teacherId: teacher.id } });
-    expect(rec.transcript).toBe('Première partie.\n\nDeuxième partie.');
-    expect([rec.approvedAt, rec.translated]).toEqual([null, null]); // the whole text has to be approved again
-    expect(transcribeAudioOnly).toHaveBeenCalledTimes(2); // the first part was not written a second time
+    expect([rec.status, rec.transcript]).toEqual(['APPROVED', 'Première partie.']); // the first part kept its own approval and text
+    expect(transcribeAudioOnly).toHaveBeenCalledTimes(5); // each part written once
+  });
 
-    words('Troisième partie.');
-    await addRecordingPart(person.id, { weekStart: WEEK, ...(await upload(group.id)) }, BEFORE);
+  it('a part whose words could not be written is said so: the teacher can type them, or try again', async () => {
+    const { person, group, teacher } = await setUp();
+    words('Première partie.');
+    await saveRecording(person.id, { weekStart: WEEK, ...(await upload(group.id)) }, BEFORE);
     await textReady(teacher.id);
-    expect((await prisma.teachingRecordingPart.findMany({ where: { recordingId: rec.id }, orderBy: { position: 'asc' } })).map((p) => [p.position, p.textState])).toEqual([[1, 'DONE'], [2, 'DONE']]);
-    expect((await prisma.teachingRecording.findFirstOrThrow({ where: { teacherId: teacher.id } })).transcript).toBe('Première partie.\n\nDeuxième partie.\n\nTroisième partie.');
+    transcribeAudioOnly.mockResolvedValueOnce(null);
+    await addRecordingPart(person.id, { weekStart: WEEK, ...(await upload(group.id)) }, BEFORE);
+    await vi.waitFor(async () => expect((await partsOf(person.id))[1].state).toBe('failed'));
+    const part = (await partsOf(person.id))[1];
+    words('Deuxième partie.');
+    await retryPart(person.id, WEEK, part.id!, BEFORE);
+    await partReady(person.id, 2);
+    expect((await partsOf(person.id))[1].transcript).toBe('Deuxième partie.');
+    await expect(retryPart(person.id, WEEK, part.id!, BEFORE)).rejects.toMatchObject({ code: 'NOT_NEEDED' });
+    // Typing it instead works too, and an empty text cannot be approved.
+    await savePartText(person.id, WEEK, part.id!, '', BEFORE);
+    await expect(approvePart(person.id, WEEK, part.id!, BEFORE)).rejects.toMatchObject({ code: 'NO_TEXT' });
+    await savePartText(person.id, WEEK, part.id!, 'Typed words.', BEFORE);
+    expect((await partsOf(person.id))[1]).toMatchObject({ state: 'ready', transcript: 'Typed words.' });
+  });
+
+  it('a part can be removed (a mistake), and a part that is not theirs cannot be changed', async () => {
+    const { person, group, teacher } = await setUp();
+    await saveRecording(person.id, { weekStart: WEEK, ...(await upload(group.id)) }, BEFORE);
+    await textReady(teacher.id);
+    const second = await upload(group.id);
+    words('Deux.');
+    await addRecordingPart(person.id, { weekStart: WEEK, ...second }, BEFORE);
+    words('Trois.');
+    await addRecordingPart(person.id, { weekStart: WEEK, ...(await upload(group.id)) }, BEFORE);
+    await partReady(person.id, 3);
+    const [, two] = await partsOf(person.id);
+    const after = await deletePart(person.id, WEEK, two.id!, BEFORE);
+    expect(after.recording!.parts.map((p) => [p.n, p.transcript])).toEqual([[1, 'Le Seigneur est mon berger.'], [2, 'Trois.']]);
+    expect(stored.has(second.storageKey)).toBe(false);
+    await expect(approvePart(person.id, WEEK, crypto.randomUUID(), BEFORE)).rejects.toMatchObject({ code: 'NO_PART' });
   });
 
   it('shows every part to the teacher, and needs a first recording, the open time and a real upload', async () => {
@@ -279,40 +321,34 @@ describe('adding more to a recording (Add more)', () => {
     expect((await recordingsFor(person.id, BEFORE)).weeks[0].recording?.parts).toHaveLength(2);
   });
 
-  it('a part whose words could not be written is said so, and trying again writes them', async () => {
-    const { person, group, teacher } = await setUp();
-    words('Première partie.');
-    await saveRecording(person.id, { weekStart: WEEK, ...(await upload(group.id)) }, BEFORE);
-    await textReady(teacher.id);
-    transcribeAudioOnly.mockResolvedValueOnce(null);
-    await addRecordingPart(person.id, { weekStart: WEEK, ...(await upload(group.id)) }, BEFORE);
-    await textReady(teacher.id);
-    expect((await recordingsFor(person.id, BEFORE)).weeks[0].recording).toMatchObject({ partsWithoutText: 1, transcript: 'Première partie.' });
-    words('Deuxième partie.');
-    await retryTranscript(person.id, WEEK, BEFORE);
-    await textReady(teacher.id);
-    const after = (await recordingsFor(person.id, BEFORE)).weeks[0].recording;
-    expect(after).toMatchObject({ partsWithoutText: 0, transcript: 'Première partie.\n\nDeuxième partie.' });
-  });
-
-  it('posts all the parts in order as one message with the whole text, and deleting or replacing removes every part', async () => {
+  it('posts every part in order, each as its own voice note with its own text in both languages', async () => {
     const { person, group, teacher } = await setUp();
     words('Un.');
     const first = await upload(group.id);
     await saveRecording(person.id, { weekStart: WEEK, ...first }, BEFORE);
     await textReady(teacher.id);
-    words('Deux.');
-    const second = await upload(group.id);
-    await addRecordingPart(person.id, { weekStart: WEEK, ...second }, BEFORE);
-    await textReady(teacher.id);
     await approveTranscript(person.id, WEEK, BEFORE);
-    await vi.waitFor(async () => expect((await prisma.teachingRecording.findFirstOrThrow({ where: { teacherId: teacher.id } })).translated).toBeTruthy());
+    const pieces = [first];
+    for (const text of ['Deux.', 'Trois.']) {
+      words(text);
+      const piece = await upload(group.id);
+      pieces.push(piece);
+      await addRecordingPart(person.id, { weekStart: WEEK, ...piece }, BEFORE);
+    }
+    await partReady(person.id, 3);
+    const parts = await partsOf(person.id);
+    await approvePart(person.id, WEEK, parts[1].id!, BEFORE); // part 3 is left unapproved: it is posted with its text as it is
+    translateText.mockResolvedValue({ detectedLanguage: 'fr', translatedBody: 'Translated.' });
     expect(await postDueRecordings(at('2026-11-25T06:00:30Z'))).toBe(1);
     const conversation = await prisma.conversation.findFirstOrThrow({ where: { communityId: group.id } });
-    const message = await prisma.message.findFirstOrThrow({ where: { conversationId: conversation.id, kind: 'USER' }, include: { attachments: { orderBy: { createdAt: 'asc' } } } });
-    expect(message.transcribedBody).toBe('Un.\n\nDeux.');
-    expect(message.attachments.map((a) => a.storageKey).sort()).toEqual([first.storageKey, second.storageKey].sort());
-    expect(message.attachments).toHaveLength(2);
+    const messages = await prisma.message.findMany({ where: { conversationId: conversation.id, kind: 'USER' }, orderBy: [{ createdAt: 'asc' }, { id: 'asc' }], include: { attachments: true } });
+    expect(messages).toHaveLength(3);
+    expect(messages.map((m) => m.attachments.map((a) => a.storageKey))).toEqual(pieces.map((p) => [p.storageKey]));
+    expect(messages.map((m) => m.transcribedBody)).toEqual(['Un.', 'Deux.', 'Trois.']);
+    expect(messages[0].translatedTranscript).toBeTruthy();
+    expect(messages[1].translatedTranscript).toBeTruthy();
+    expect(messages.every((m) => m.senderPersonId === person.id)).toBe(true);
+    expect((await prisma.teachingRecording.findFirstOrThrow({ where: { teacherId: teacher.id } })).messageId).toBe(messages[0].id);
   });
 
   it('deleting the recording removes every part, and a new recording replaces them all', async () => {

@@ -6,11 +6,21 @@ import { enhanceMic, openMic, teachingBitrate } from '../../lib/voiceCapture';
 import { slotLabel } from './teachingTypes';
 
 type Status = 'RECORDED' | 'WRITING' | 'TEXT_READY' | 'FAILED' | 'APPROVED' | 'POSTED';
+type PartState = 'writing' | 'ready' | 'failed' | 'approved';
+interface Part {
+  /** null for part 1 (the recording itself). */
+  id: string | null;
+  n: number;
+  audioUrl: string | null;
+  state: PartState;
+  transcript: string;
+  translated: string;
+}
 interface RecordingWeek {
   weekStart: string;
   postsAt: string;
   canChange: boolean;
-  recording: null | { status: Status; spokenLanguage: 'en' | 'fr' | null; transcript: string; translated: string; audioUrl: string | null; parts?: { audioUrl: string | null }[]; partsWithoutText?: number };
+  recording: null | { status: Status; spokenLanguage: 'en' | 'fr' | null; transcript: string; translated: string; audioUrl: string | null; parts?: Part[]; partsWithoutText?: number };
 }
 interface RecordingsResponse {
   enabled: boolean;
@@ -21,28 +31,132 @@ interface RecordingsResponse {
 
 const ALLOWED = ['audio/webm', 'audio/mp4', 'audio/mpeg', 'audio/ogg'];
 
-// The teacher's own teaching recorded ahead of time. They record, read the written text in the language they spoke, correct it, and
-// approve it; the other language is made automatically (they are never asked to read it). At their teaching time the recording is
-// posted in the teaching group by itself.
+/** The parts as the server gives them; an older answer without them is read as one part. */
+function partsOf(rec: NonNullable<RecordingWeek['recording']>): Part[] {
+  if (Array.isArray(rec.parts) && rec.parts.length > 0 && rec.parts.every((p) => typeof p.n === 'number')) return rec.parts;
+  const state: PartState = rec.status === 'RECORDED' || rec.status === 'WRITING' ? 'writing' : rec.status === 'FAILED' ? 'failed' : rec.status === 'TEXT_READY' ? 'ready' : 'approved';
+  return [{ id: null, n: 1, audioUrl: rec.audioUrl, state, transcript: rec.transcript, translated: rec.translated }];
+}
+
+const STATE_TONE: Record<PartState, string> = {
+  writing: 'bg-slate-100 text-slate-700',
+  ready: 'bg-amber-100 text-amber-900',
+  failed: 'bg-amber-100 text-amber-900',
+  approved: 'bg-green-100 text-green-800',
+};
+
+// One part of the teaching: listen to it, read its text in the language spoken, correct it, approve it. Each part is checked on its own.
+function PartCard({ part, week, language, onChanged }: { part: Part; week: RecordingWeek; language: string; onChanged: (w: RecordingWeek) => void }) {
+  const { t } = useTranslation();
+  const [text, setText] = useState(part.transcript);
+  const [dirty, setDirty] = useState(false);
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState('');
+  useEffect(() => {
+    if (!dirty) setText(part.transcript);
+  }, [part.transcript, dirty]);
+
+  const base = `/api/member/teaching-rota/recordings/${week.weekStart}${part.id ? `/parts/${part.id}` : ''}`;
+  async function call(fn: () => Promise<RecordingWeek>, after?: () => void) {
+    setBusy(true);
+    setError('');
+    try {
+      const w = await fn();
+      after?.();
+      onChanged(w);
+    } catch (e) {
+      setError(e instanceof ApiError ? e.message : t('teachingRecording.failed'));
+    } finally {
+      setBusy(false);
+    }
+  }
+  const save = () => call(() => api.put<RecordingWeek>(`${base}/transcript`, { text }), () => setDirty(false));
+  const approve = () =>
+    call(async () => {
+      if (dirty || text !== part.transcript) await api.put<RecordingWeek>(`${base}/transcript`, { text });
+      return api.post<RecordingWeek>(`${base}/approve`, {});
+    }, () => setDirty(false));
+  const retry = () => call(() => api.post<RecordingWeek>(`${base}/retry`, {}));
+  const remove = () => {
+    if (!part.id || !window.confirm(t('teachingRecording.confirm_remove_part', { n: part.n }) ?? '')) return;
+    void call(() => api.delete<RecordingWeek>(base));
+  };
+  const editable = week.canChange && part.state !== 'writing';
+
+  return (
+    <div className="space-y-2 rounded-xl border border-slate-200 p-3" data-testid={`recording-part-${part.n}`}>
+      <div className="flex items-center justify-between gap-2">
+        <p className="font-semibold text-slate-800">{t('teachingRecording.part_n', { n: part.n })}</p>
+        <span className={`rounded-full px-2 py-0.5 text-xs font-semibold ${STATE_TONE[part.state]}`}>{t(`teachingRecording.state_${part.state}`)}</span>
+      </div>
+      {part.audioUrl && <audio controls src={part.audioUrl} className="w-full" aria-label={t('teachingRecording.part_n', { n: part.n }) ?? ''} />}
+      {part.state === 'writing' && <p className="rounded-lg bg-slate-50 p-2 text-sm text-slate-700" data-testid="recording-writing">⏳ {t('teachingRecording.writing')}</p>}
+      {editable && (
+        <>
+          {part.state === 'failed' && <p className="rounded-lg bg-amber-50 p-2 text-sm text-amber-900" data-testid="recording-failed">{t('teachingRecording.part_text_failed')}</p>}
+          <label className="block text-sm font-semibold text-slate-800" htmlFor={`rec-text-${week.weekStart}-${part.n}`}>
+            {language ? t('teachingRecording.text_in', { language }) : t('teachingRecording.text_label')}
+          </label>
+          {part.state !== 'approved' && <p className="text-xs text-slate-600">{t('teachingRecording.correct_help')}</p>}
+          <textarea
+            id={`rec-text-${week.weekStart}-${part.n}`}
+            className="input min-h-[9rem] w-full"
+            value={text}
+            onChange={(e) => {
+              setText(e.target.value);
+              setDirty(true);
+            }}
+            data-testid="recording-text"
+          />
+          <div className="grid grid-cols-2 gap-2">
+            <button type="button" className="btn-secondary" disabled={busy || !dirty} onClick={() => void save()} data-testid="recording-save">
+              {t('teachingRecording.save_text')}
+            </button>
+            <button type="button" className="btn-primary" disabled={busy || !text.trim() || (part.state === 'approved' && !dirty)} onClick={() => void approve()} data-testid="recording-approve">
+              ✓ {t('teachingRecording.approve')}
+            </button>
+          </div>
+          {part.state === 'failed' && (
+            <button type="button" className="text-sm font-semibold text-brand-700 underline" disabled={busy} onClick={() => void retry()} data-testid="recording-retry">
+              {t('teachingRecording.try_again')}
+            </button>
+          )}
+        </>
+      )}
+      {part.state === 'approved' && !dirty && (
+        <p className="rounded-lg bg-green-50 p-2 text-sm text-green-800" data-testid="recording-approved">
+          ✓ {t('teachingRecording.approved')} {part.translated ? t('teachingRecording.translated_ready') : t('teachingRecording.translating')}
+        </p>
+      )}
+      {part.id && week.canChange && (
+        <button type="button" className="text-xs font-semibold text-red-700 underline" disabled={busy} onClick={remove} data-testid="recording-remove-part">
+          {t('teachingRecording.remove_part')}
+        </button>
+      )}
+      {error && <p role="alert" className="text-sm text-red-700">{error}</p>}
+    </div>
+  );
+}
+
+// The teacher's own teaching recorded ahead of time, in as many parts as they like (about 5 minutes each). For each part, in order:
+// record it, read the written text in the language spoken, correct it and approve it (the other language is made automatically,
+// they are never asked to read it); then record the next part. At their teaching time every part is posted in the group by itself.
 function WeekRecording({ week, groupChosen, onChanged }: { week: RecordingWeek; groupChosen: boolean; onChanged: (w: RecordingWeek) => void }) {
   const { t, i18n } = useTranslation();
   const rec = week.recording;
+  const parts = rec ? partsOf(rec) : [];
+  const last = parts[parts.length - 1];
+  const next = parts.length + 1;
   const [clip, setClip] = useState<{ blob: Blob; url: string; mime: string } | null>(null);
   const [recording, setRecording] = useState(false);
   const [paused, setPaused] = useState(false);
   const [seconds, setSeconds] = useState(0);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
-  const [text, setText] = useState(rec?.transcript ?? '');
-  const [dirty, setDirty] = useState(false);
   const recorder = useRef<MediaRecorder | null>(null);
   const timer = useRef<number | null>(null);
   const when = slotLabel(week.postsAt, i18n.language);
 
-  // The written text arrives later: show it in the box unless the teacher is already editing.
-  useEffect(() => {
-    if (!dirty) setText(rec?.transcript ?? '');
-  }, [rec?.transcript, dirty]);
   useEffect(() => () => {
     if (timer.current) window.clearInterval(timer.current);
     if (clip) URL.revokeObjectURL(clip.url);
@@ -55,7 +169,6 @@ function WeekRecording({ week, groupChosen, onChanged }: { week: RecordingWeek; 
     try {
       const stream = await openMic();
       const mime = pickRecorderMime('audio');
-      // The teaching is recorded after a gentle clean-up (even, loud, never crackling) at a better quality than the default.
       const enhanced = enhanceMic(stream);
       const bitrate = teachingBitrate();
       const options: MediaRecorderOptions = { ...(mime ? { mimeType: mime } : {}), ...(bitrate ? { audioBitsPerSecond: bitrate } : {}) };
@@ -119,10 +232,9 @@ function WeekRecording({ week, groupChosen, onChanged }: { week: RecordingWeek; 
       const auth = await api.post<{ storageKey: string; uploadUrl: string }>('/api/member/teaching-rota/recordings/authorize', { weekStart: week.weekStart, mimeType: clip.mime, byteSize: clip.blob.size });
       const put = await fetch(auth.uploadUrl, { method: 'PUT', headers: { 'Content-Type': clip.mime }, body: clip.blob });
       if (!put.ok) throw new Error('upload failed');
-      // With a recording already made, this is one more part after it; with none, it is the recording itself.
+      // With a recording already made, this is the next part; with none, it is part 1.
       const saved = await api.post<RecordingWeek>(rec ? '/api/member/teaching-rota/recordings/parts' : '/api/member/teaching-rota/recordings', { weekStart: week.weekStart, storageKey: auth.storageKey, mimeType: clip.mime, byteSize: clip.blob.size });
       setClip(null);
-      setDirty(false);
       onChanged(saved);
     } catch (e) {
       fail(e);
@@ -131,35 +243,30 @@ function WeekRecording({ week, groupChosen, onChanged }: { week: RecordingWeek; 
     }
   }
 
-  async function call<T>(fn: () => Promise<T>, after?: (r: T) => void) {
+  async function startOver() {
+    if (!window.confirm(t('teachingRecording.confirm_start_over') ?? '')) return;
     setBusy(true);
     setError('');
     try {
-      const r = await fn();
-      after?.(r);
+      onChanged(await api.delete<RecordingWeek>(`/api/member/teaching-rota/recordings/${week.weekStart}`));
     } catch (e) {
       fail(e);
     } finally {
       setBusy(false);
     }
   }
-  const base = `/api/member/teaching-rota/recordings/${week.weekStart}`;
-  const saveText = () => call(() => api.put<RecordingWeek>(`${base}/transcript`, { text }), (w) => { setDirty(false); onChanged(w); });
-  const approve = () =>
-    call(async () => {
-      if (dirty || text !== (rec?.transcript ?? '')) await api.put<RecordingWeek>(`${base}/transcript`, { text });
-      return api.post<RecordingWeek>(`${base}/approve`, {});
-    }, (w) => { setDirty(false); onChanged(w); });
-  const retry = () => call(() => api.post<RecordingWeek>(`${base}/retry`, {}), onChanged);
-  const remove = () => {
-    if (!window.confirm(t('teachingRecording.confirm_start_over') ?? '')) return;
-    void call(() => api.delete<RecordingWeek>(base), (w) => { setText(''); setDirty(false); onChanged(w); });
-  };
 
   const language = rec?.spokenLanguage === 'fr' ? 'Français' : rec?.spokenLanguage === 'en' ? 'English' : '';
-  const writing = rec && (rec.status === 'RECORDED' || rec.status === 'WRITING');
-  // More can be added at any time before the teaching time, even while the words are still being written.
+  // A next part can be recorded at any time before the teaching time, even while the text of the last one is still being written.
   const showClipTools = week.canChange && groupChosen;
+  // What to do next, said plainly, so the parts are done in order.
+  const guide = !last
+    ? t('teachingRecording.guide_first')
+    : last.state === 'writing'
+      ? t('teachingRecording.guide_writing', { n: last.n, next })
+      : last.state === 'approved'
+        ? t('teachingRecording.guide_done', { n: last.n, next })
+        : t('teachingRecording.guide_check', { n: last.n, next });
 
   return (
     <section className="card space-y-3" data-testid={`recording-${week.weekStart}`}>
@@ -175,82 +282,36 @@ function WeekRecording({ week, groupChosen, onChanged }: { week: RecordingWeek; 
 
       {rec?.status === 'POSTED' && <p className="rounded-lg bg-green-50 p-3 text-sm font-semibold text-green-800" data-testid="recording-posted">✓ {t('teachingRecording.posted')}</p>}
 
-      {rec && rec.status !== 'POSTED' && (rec.parts?.length ?? 0) > 1 && (
-        <div className="space-y-2" data-testid="recording-parts">
-          {rec.parts!.map((part, i) =>
-            part.audioUrl ? (
-              <div key={i}>
-                <p className="text-xs font-semibold text-slate-600">{t('teachingRecording.part_n', { n: i + 1 })}</p>
-                <audio controls src={part.audioUrl} className="w-full" aria-label={t('teachingRecording.part_n', { n: i + 1 }) ?? ''} />
-              </div>
-            ) : null,
-          )}
+      {rec && rec.status !== 'POSTED' && (
+        <div className="space-y-3" data-testid="recording-parts">
+          {parts.map((part) => (
+            <PartCard key={part.id ?? 'first'} part={part} week={week} language={language} onChanged={onChanged} />
+          ))}
         </div>
-      )}
-      {rec && rec.status !== 'POSTED' && (rec.parts?.length ?? 0) <= 1 && rec.audioUrl && (
-        <audio controls src={rec.audioUrl} className="w-full" aria-label={t('teachingRecording.listen') ?? ''} />
-      )}
-
-      {writing && <p className="rounded-lg bg-slate-50 p-3 text-sm text-slate-700" data-testid="recording-writing">⏳ {t('teachingRecording.writing')}</p>}
-
-      {rec && (rec.status === 'FAILED' || rec.status === 'TEXT_READY' || rec.status === 'APPROVED') && week.canChange && (
-        <div className="space-y-2">
-          {(rec.partsWithoutText ?? 0) > 0 && <p className="rounded-lg bg-amber-50 p-3 text-sm text-amber-900" data-testid="recording-parts-failed">{t('teachingRecording.parts_failed', { count: rec.partsWithoutText })}</p>}
-          {rec.status === 'FAILED' && !rec.transcript && <p className="rounded-lg bg-amber-50 p-3 text-sm text-amber-900" data-testid="recording-failed">{t('teachingRecording.text_failed')}</p>}
-          <label className="block text-sm font-semibold text-slate-800" htmlFor={`rec-text-${week.weekStart}`}>
-            {language ? t('teachingRecording.text_in', { language }) : t('teachingRecording.text_label')}
-          </label>
-          <p className="text-xs text-slate-600">{t('teachingRecording.correct_help')}</p>
-          <textarea
-            id={`rec-text-${week.weekStart}`}
-            className="input min-h-[12rem] w-full"
-            value={text}
-            onChange={(e) => {
-              setText(e.target.value);
-              setDirty(true);
-            }}
-            data-testid="recording-text"
-          />
-          <div className="grid grid-cols-2 gap-2">
-            <button type="button" className="btn-secondary" disabled={busy || !dirty} onClick={() => void saveText()} data-testid="recording-save">
-              {t('teachingRecording.save_text')}
-            </button>
-            <button type="button" className="btn-primary" disabled={busy || !text.trim() || (rec.status === 'APPROVED' && !dirty)} onClick={() => void approve()} data-testid="recording-approve">
-              ✓ {t('teachingRecording.approve')}
-            </button>
-          </div>
-          {(rec.status === 'FAILED' || (rec.partsWithoutText ?? 0) > 0) && (
-            <button type="button" className="text-sm font-semibold text-brand-700 underline" disabled={busy} onClick={() => void retry()} data-testid="recording-retry">
-              {t('teachingRecording.try_again')}
-            </button>
-          )}
-        </div>
-      )}
-
-      {rec?.status === 'APPROVED' && !dirty && (
-        <p className="rounded-lg bg-green-50 p-3 text-sm text-green-800" data-testid="recording-approved">
-          ✓ {t('teachingRecording.approved')} {rec.translated ? t('teachingRecording.translated_ready') : t('teachingRecording.translating')}
-        </p>
       )}
 
       {showClipTools && !clip && !recording && (
-        <div className="flex flex-wrap items-center gap-3">
-          <button type="button" className="btn-primary" onClick={() => void start()} data-testid="recording-start">
-            🎙 {rec ? t('teachingRecording.add_more') : t('teachingRecording.record')}
-          </button>
-          <label className="cursor-pointer text-sm font-semibold text-brand-700 underline">
-            {rec ? t('teachingRecording.add_file') : t('teachingRecording.choose_file')}
-            <input type="file" accept="audio/*" className="hidden" onChange={(e) => { pickFile(e.target.files?.[0]); e.target.value = ''; }} data-testid="recording-file" />
-          </label>
-          {rec && (
-            <button type="button" className="ml-auto text-sm font-semibold text-red-700 underline" disabled={busy} onClick={remove} data-testid="recording-delete">
-              {t('teachingRecording.start_over')}
+        <div className="space-y-2 rounded-xl bg-brand-50 p-3" data-testid="recording-next">
+          <p className="text-sm text-brand-900" data-testid="recording-guide">{guide}</p>
+          <div className="flex flex-wrap items-center gap-3">
+            <button type="button" className="btn-primary" onClick={() => void start()} data-testid="recording-start">
+              🎙 {t('teachingRecording.record_part', { n: next })}
             </button>
-          )}
+            <label className="cursor-pointer text-sm font-semibold text-brand-700 underline">
+              {t('teachingRecording.choose_file_part', { n: next })}
+              <input type="file" accept="audio/*" className="hidden" onChange={(e) => { pickFile(e.target.files?.[0]); e.target.value = ''; }} data-testid="recording-file" />
+            </label>
+            {rec && (
+              <button type="button" className="ml-auto text-sm font-semibold text-red-700 underline" disabled={busy} onClick={() => void startOver()} data-testid="recording-delete">
+                {t('teachingRecording.start_over')}
+              </button>
+            )}
+          </div>
         </div>
       )}
       {recording && (
         <div className="flex flex-wrap items-center gap-3" data-testid="recording-live">
+          <span className="w-full text-sm font-semibold text-slate-700">{t('teachingRecording.part_n', { n: next })}</span>
           <span className={`font-mono text-lg ${paused ? 'text-amber-700' : 'text-red-700'}`}>{paused ? '⏸' : '●'} {Math.floor(seconds / 60)}:{String(seconds % 60).padStart(2, '0')}</span>
           {paused ? (
             <button type="button" className="btn-primary" onClick={resume} data-testid="recording-resume">
@@ -269,10 +330,11 @@ function WeekRecording({ week, groupChosen, onChanged }: { week: RecordingWeek; 
       )}
       {clip && (
         <div className="space-y-2" data-testid="recording-preview">
+          <p className="text-sm font-semibold text-slate-700">{t('teachingRecording.part_n', { n: next })}</p>
           <audio controls src={clip.url} className="w-full" />
           <div className="grid grid-cols-2 gap-2">
             <button type="button" className="btn-primary" disabled={busy} onClick={() => void useClip()} data-testid="recording-use">
-              {busy ? t('teachingRecording.sending') : rec ? t('teachingRecording.add_to_teaching') : t('teachingRecording.use_this')}
+              {busy ? t('teachingRecording.sending') : t('teachingRecording.use_as_part', { n: next })}
             </button>
             <button type="button" className="btn-secondary" disabled={busy} onClick={() => setClip(null)}>
               {t('teachingRecording.discard')}
@@ -300,7 +362,7 @@ export function TeachingRecordingPanel() {
     void load();
   }, [load]);
   // While the text is being written (or the other language made), look again every few seconds.
-  const waiting = data?.weeks.some((w) => w.recording && (w.recording.status === 'RECORDED' || w.recording.status === 'WRITING' || (w.recording.status === 'APPROVED' && !w.recording.translated)));
+  const waiting = data?.weeks.some((w) => w.recording && w.recording.status !== 'POSTED' && partsOf(w.recording).some((p) => p.state === 'writing' || (p.state === 'approved' && !p.translated)));
   useEffect(() => {
     if (!waiting) return;
     const id = window.setInterval(() => void load(), 6000);

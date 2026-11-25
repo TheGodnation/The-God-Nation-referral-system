@@ -2,7 +2,8 @@ import { reportClientError } from './reportError';
 
 // A page that stays white (or on "Loading…") for many seconds is never useful to anyone. When that happens we
 //  1. tell the server what the phone was doing (so the real cause can be found), and
-//  2. show two plain buttons: "Reload" and "Fix and reload" (which also forgets this phone's saved copy of the app).
+//  2. show a plain "Reload" button. (There used to be a "Fix and reload" button that removed the app's background part: that also cut
+//     the phone's notifications, so it is gone. The page's own rescue in index.html clears an old saved copy without touching them.)
 // Plain DOM on purpose: it must work even when the app itself is what failed.
 
 const CHECK_EVERY_MS = 3000;
@@ -13,21 +14,6 @@ export function isBlank(root: HTMLElement | null): boolean {
   if (!root) return true;
   if (root.querySelector('[data-route-loading]')) return true;
   return (root.innerText || '').trim().length === 0;
-}
-
-async function forgetSavedCopy(): Promise<void> {
-  try {
-    const regs = (await navigator.serviceWorker?.getRegistrations?.()) ?? [];
-    await Promise.all(regs.map((r) => r.unregister()));
-  } catch {
-    /* nothing to forget */
-  }
-  try {
-    const keys = (await window.caches?.keys?.()) ?? [];
-    await Promise.all(keys.map((k) => window.caches.delete(k)));
-  } catch {
-    /* nothing to forget */
-  }
 }
 
 function showHelp(): void {
@@ -51,7 +37,6 @@ function showHelp(): void {
   box.append(
     text,
     mk('Reload / Recharger', () => window.location.reload(), true),
-    mk('Fix and reload / Réparer', () => void forgetSavedCopy().finally(() => window.location.reload()), false),
   );
   document.body.appendChild(box);
 }
