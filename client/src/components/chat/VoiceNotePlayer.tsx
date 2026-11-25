@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Avatar } from '../Avatar';
 import { formatBytes } from '../../lib/attachmentLimits';
-import { BOOST_LEVELS, attachBoost, boostBlocked, boostSupported, loadBoost, markBoostBlocked, primeBoost, saveBoost, type BoostGraph, type BoostLevel } from '../../lib/voiceBoost';
+import { attachLevel, knownLift, levelBlocked, levelSupported, markLevelBlocked, measureNote, primeLevel, type LevelGraph } from '../../lib/voiceLevel';
 
 // A WhatsApp-style voice note: the sender's photo beside a play button, a
 // waveform, and the duration. There is no stored waveform anywhere in this
@@ -94,19 +94,18 @@ export function VoiceNotePlayer({
   const [scrub, setScrub] = useState<number | null>(null);
   const scrubbing = useRef(false);
   const [rate, setRate] = useState<number>(1);
-  // Loudness boost (see lib/voiceBoost): an amplifier with a limiter in front of the speaker. blocked = the storage refused the extra
+  // Even loudness (see lib/voiceLevel): a quiet note is lifted to the same level as the others. blocked = the storage refused the extra
   // access it needs, so this note plays the ordinary way.
-  const [boost, setBoost] = useState<BoostLevel>(loadBoost);
-  const [blocked, setBlocked] = useState<boolean>(boostBlocked);
-  const graph = useRef<BoostGraph | null>(null);
+  const [blocked, setBlocked] = useState<boolean>(levelBlocked);
+  const graph = useRef<LevelGraph | null>(null);
   const corsConfirmed = useRef(false);
   const fellBack = useRef(false);
   const bars = useRef(seededBars(seedId)).current;
   const ready = Boolean(url);
   const showFailed = failed || broken;
-  const canBoost = boostSupported() && !blocked;
-  // The boost needs the audio to be fetched in a way the storage must allow; a saved copy on the phone (blob:) always is.
-  const usesCors = canBoost && Boolean(url) && !String(url).startsWith('blob:');
+  const canLevel = levelSupported() && !blocked;
+  // The levelling needs the audio to be fetched in a way the storage must allow; a saved copy on the phone (blob:) always is.
+  const usesCors = canLevel && Boolean(url) && !String(url).startsWith('blob:');
 
   // A new attachment id (new voice note scrolled into view) resets playback state.
   useEffect(() => {
@@ -118,14 +117,11 @@ export function VoiceNotePlayer({
     linkRetries.current = 0;
     setBroken(false);
   }, [seedId]);
-  // A fresh audio element (new note, or the plain one after a refusal) has no amplifier hooked up yet.
+  // A fresh audio element (new note, or the plain one after a refusal) has no levelling hooked up yet.
   useEffect(() => {
-    graph.current?.dispose();
     graph.current = null;
     corsConfirmed.current = false;
   }, [blocked, seedId]);
-  // Going away: stop listening for noise.
-  useEffect(() => () => graph.current?.dispose(), []);
 
   // The chosen speed applies to every note, including one whose audio is only now ready.
   useEffect(() => {
@@ -136,7 +132,7 @@ export function VoiceNotePlayer({
   useEffect(() => {
     if (url && playWhenReady.current) {
       playWhenReady.current = false;
-      ensureBoost(false);
+      ensureLevel(false);
       void audioRef.current?.play().catch(() => {});
     }
   }, [url]);
@@ -149,27 +145,27 @@ export function VoiceNotePlayer({
   }
 
   /**
-   * Hooks this note up to the amplifier (once), or sets its level. It only starts from a tap, or when an earlier tap already started
-   * the audio processing, and only once the storage is known to allow it, so the note can never end up silent.
+   * Hooks this note up to the even loudness (once). It only starts from a tap, or when an earlier tap already started the audio
+   * processing, and only once the storage is known to allow it, so the note can never end up silent. The note starts at the lift it
+   * was measured at before, or untouched until its first measurement is ready (a moment), then moves smoothly to it.
    */
-  function ensureBoost(fromTap: boolean, level: BoostLevel = boost) {
+  function ensureLevel(fromTap: boolean) {
     const audio = audioRef.current;
-    if (!audio || !canBoost) return;
+    if (!audio || !canLevel) return;
     if (graph.current) {
-      graph.current.setLevel(level);
+      if (fromTap) primeLevel(); // wakes the audio processing up again if the phone put it to sleep
       return;
     }
-    if (level === 'off') return;
     if (usesCors && !corsConfirmed.current) return;
-    if (fromTap && !primeBoost()) return;
-    graph.current = attachBoost(audio, level, fromTap);
-  }
-
-  function cycleBoost() {
-    const next = BOOST_LEVELS[(BOOST_LEVELS.indexOf(boost) + 1) % BOOST_LEVELS.length];
-    setBoost(next);
-    saveBoost(next);
-    ensureBoost(true, next);
+    if (fromTap && !primeLevel()) return;
+    const known = knownLift(seedId);
+    const attached = attachLevel(audio, fromTap, known ?? 0);
+    graph.current = attached;
+    if (attached && known === undefined && url) {
+      void measureNote(seedId, url).then((db) => {
+        if (graph.current === attached) attached.setLift(db);
+      });
+    }
   }
 
   function pressPlay() {
@@ -183,10 +179,10 @@ export function VoiceNotePlayer({
     if (!ready) {
       playWhenReady.current = true;
       // Start the audio processing now, inside the tap, so it is ready when the audio is.
-      if (canBoost && boost !== 'off') primeBoost();
+      if (canLevel) primeLevel();
       return;
     }
-    ensureBoost(true);
+    ensureLevel(true);
     togglePlay();
   }
 
@@ -363,11 +359,6 @@ export function VoiceNotePlayer({
                     <button type="button" onClick={() => skip(SKIP_SECONDS)} aria-label={t('groupChat.voice_forward', { seconds: SKIP_SECONDS }) ?? ''} data-testid="voice-forward" className="rounded-full bg-slate-900/10 px-2 py-1 text-[11px] font-semibold leading-none text-slate-700">
                       +{SKIP_SECONDS}
                     </button>
-                    {canBoost && (
-                      <button type="button" onClick={cycleBoost} aria-label={t('groupChat.voice_boost', { level: t(`groupChat.voice_boost_${boost}`) }) ?? ''} data-testid="voice-boost" className="rounded-full bg-slate-900/10 px-2 py-1 text-[11px] font-semibold leading-none text-slate-700">
-                        {boost === 'off' ? '🔈' : boost === 'loud' ? '🔊' : '🔊+'}
-                      </button>
-                    )}
                     <button type="button" onClick={nextRate} aria-label={t('groupChat.voice_speed', { rate }) ?? ''} data-testid="voice-speed" className="rounded-full bg-slate-900/10 px-2 py-1 text-[11px] font-semibold leading-none text-slate-700">
                       {rate}×
                     </button>
@@ -388,11 +379,11 @@ export function VoiceNotePlayer({
                   // A recording made by the phone's recorder can report no length until it is played: then the saved one stays.
                   const d = e.currentTarget.duration;
                   if (Number.isFinite(d) && d > 0) setDuration(d);
-                  if (usesCors) corsConfirmed.current = true; // it loaded the way the boost needs
-                  // It would not load that way but did load the ordinary way: the storage does not allow the boost, so stop trying.
+                  if (usesCors) corsConfirmed.current = true; // it loaded the way the levelling needs
+                  // It would not load that way but did load the ordinary way: the storage does not allow the levelling, so stop trying.
                   if (fellBack.current) {
                     fellBack.current = false;
-                    markBoostBlocked();
+                    markLevelBlocked();
                   }
                 }}
                 onDurationChange={(e) => {
@@ -404,7 +395,7 @@ export function VoiceNotePlayer({
                 onPause={() => setPlaying(false)}
                 onCanPlayThrough={() => onBuffered?.()}
                 onError={() => {
-                  // Not loading in the extra-access way is not a broken link: try the ordinary way first (no boost for this note).
+                  // Not loading in the extra-access way is not a broken link: try the ordinary way first (no levelling for this note).
                   if (usesCors && !corsConfirmed.current) {
                     fellBack.current = true;
                     setBlocked(true);

@@ -1,7 +1,7 @@
 import { insertNoiseGate } from './noiseGate';
 import { voiceProcessingOn } from './voiceSettings';
 
-// (Switched off at the moment, see voiceSettings: the plain microphone is recorded, as before the tuning.)
+// (The clean-up is switched off, see voiceSettings: the plain microphone is recorded, with the phone's own voice cleaner, at 64 kbps.)
 // Recording a clear, loud voice note. The microphone is opened with the phone's own voice clean-up switched on (noise reduction, echo
 // control and automatic gain, which lifts a quiet speaker), the recording is made at a better quality than the browser's default, and
 // the background noise is turned down between words, and the voice is run through a gentle compressor (so soft and loud parts come out
@@ -9,13 +9,11 @@ import { voiceProcessingOn } from './voiceSettings';
 
 /** Speech at 64 kbps sounds clean and a minute is only about half a megabyte. */
 export const VOICE_BITRATE = 64_000;
-/** What chat voice notes were recorded at before the tuning. */
-export const ORIGINAL_CHAT_BITRATE = 32_000;
 
-/** The recording quality for a chat voice note: the original 32 kbps unless the tuning is on. */
-export const chatBitrate = (): number => (voiceProcessingOn() ? VOICE_BITRATE : ORIGINAL_CHAT_BITRATE);
-/** The recording quality for a teaching recording: the browser's own default (none given) unless the tuning is on. */
-export const teachingBitrate = (): number | undefined => (voiceProcessingOn() ? VOICE_BITRATE : undefined);
+/** The recording quality for a chat voice note: 64 kbps, clear and natural (the voice itself is not processed, see voiceSettings). */
+export const chatBitrate = (): number => VOICE_BITRATE;
+/** The recording quality for a teaching recording: the same 64 kbps, so every phone records teachings equally clearly. */
+export const teachingBitrate = (): number => VOICE_BITRATE;
 
 const VOICE_CONSTRAINTS: MediaTrackConstraints = { echoCancellation: true, noiseSuppression: true, autoGainControl: true, channelCount: 1 };
 
