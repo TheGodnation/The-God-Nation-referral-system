@@ -38,7 +38,7 @@ const PHOTOS: Record<number, Photo> = {
   1: { src: '/site/revival-worship.jpg', at: '38% 45%' },
   // A teacher with his class: shown whole, nothing cut off.
   3: { src: '/site/discipleship-teaching.jpg', whole: true },
-  // Phone and laptop on a video call, shown whole (the words on the screen behind are left out of the picture).
+  // A man on a phone and laptop video call, shown whole (the words on the TV behind and the phone screen are blurred).
   4: { src: '/site/digital-online.jpg', whole: true },
   5: { src: '/site/session-close.jpg', at: '50% 40%' },
   6: { src: '/site/prayer-group.jpg', at: '45% 55%' },
