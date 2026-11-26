@@ -79,8 +79,12 @@ describe('HomePage', () => {
     expect(within(last).getByRole('link', { name: /Existing Members — Sign In/ })).toHaveAttribute('href', '/member/login');
     expect(within(last).queryByTestId('discover-whatsapp')).toBeNull();
     expect(within(last).getAllByRole('link')).toHaveLength(2);
-    // The photographs already on the public site sit where they fit (slides 3, 5, 10, 11); the other slides wait for their own and show plain, bright. No book cover.
-    expect(slides.querySelectorAll('article img[src^="/site/"]')).toHaveLength(4);
+    // Each photograph sits on the slide whose words it shows; slides 2 and 12 stay plain and bright. No book cover.
+    expect(slides.querySelectorAll('article img[src^="/site/"]')).toHaveLength(10);
+    expect(screen.getByTestId('discover-slide-8').querySelector('img[src="/site/national-network.jpg"]')).not.toBeNull();
+    expect(screen.getByTestId('discover-slide-9').querySelector('img[src="/site/mutual-support.jpg"]')).not.toBeNull();
+    expect(slides.querySelector('img[src="/site/session-presenter.jpg"]')).toBeNull(); // the unclear photo is gone
+    expect(screen.getByTestId('discover-slide-2').querySelector('img[src^="/site/"]')).toBeNull();
     expect(screen.queryByTestId('discover-book')).toBeNull();
     // The first and last slide have no topic tag: no "The introduction", no "The invitation".
     expect(screen.queryByText('The introduction')).toBeNull();

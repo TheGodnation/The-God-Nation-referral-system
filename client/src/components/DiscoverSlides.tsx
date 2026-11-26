@@ -25,7 +25,7 @@ const COUNT = SLIDES.length;
  * plain version (no picture, no dark card) so nothing is ever a broken picture.
  *  - `at`: which part of the picture stays in view when it is cropped to the slide.
  *  - `zoom`: enlarge the picture around that point (used to leave out something at the edge of the photo).
- * These are pictures already used on the public site, placed where they fit until the final photographs come.
+ * The founder's photographs, each on the slide whose words it shows (slides 2 and 12 stay plain and bright).
  */
 interface Photo {
   src: string;
@@ -33,10 +33,16 @@ interface Photo {
   zoom?: number;
 }
 const PHOTOS: Record<number, Photo> = {
+  1: { src: '/site/revival-worship.jpg', at: '38% 45%' },
   3: { src: '/site/session-room.jpg', at: '30% 50%' },
+  4: { src: '/site/digital-online.jpg', at: '30% 50%' },
   5: { src: '/site/session-close.jpg', at: '50% 40%' },
-  10: { src: '/site/session-presenter.jpg', at: '45% 50%' },
-  11: { src: '/site/session-workshop.jpg', at: '100% 40%', zoom: 1.6 },
+  6: { src: '/site/prayer-group.jpg', at: '45% 55%' },
+  7: { src: '/site/skills-learning.jpg', at: '25% 50%' },
+  8: { src: '/site/national-network.jpg', at: '55% 40%' },
+  9: { src: '/site/mutual-support.jpg', at: '48% 50%' },
+  10: { src: '/site/discipleship-teaching.jpg', at: '58% 40%' },
+  11: { src: '/site/unity-friends.jpg', at: '45% 40%' },
 };
 
 const SHADOW = '[text-shadow:0_1px_3px_rgba(0,0,0,0.55),0_2px_18px_rgba(0,0,0,0.45)]';
