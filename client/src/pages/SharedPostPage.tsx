@@ -163,8 +163,22 @@ export function SharedPostPage() {
                   </>
                 ) : (
                   <>
-                    <h2 className="text-xl font-bold text-gold-400">{t('shareLink.join_title')}</h2>
-                    <p className="mt-2 text-white/90">{t('shareLink.join_text')}</p>
+                    {/* The invitation to join, in the founder's words. */}
+                    <p className="text-sm font-bold uppercase tracking-widest text-white/80">{t('shareLink.pitch_kicker')}</p>
+                    <h2 className="mt-2 text-2xl font-extrabold uppercase leading-tight text-gold-400" data-testid="shared-pitch-title">{t('shareLink.pitch_title')}</h2>
+                    <div className="mx-auto mt-4 max-w-prose space-y-3 text-left text-[15px] leading-relaxed text-white/90">
+                      <p>{t('shareLink.pitch_p1')}</p>
+                      <p>{t('shareLink.pitch_p2')}</p>
+                    </div>
+                    <ul className="mx-auto mt-5 grid max-w-md grid-cols-1 gap-2 text-left sm:grid-cols-2" data-testid="shared-pitch-points">
+                      {(['p_grow', 'p_develop', 'p_influence', 'p_disciples', 'p_reach', 'p_represent'] as const).map((k) => (
+                        <li key={k} className="flex items-center gap-2 rounded-lg bg-white/10 px-3 py-2 text-sm font-semibold text-white">
+                          <span aria-hidden className="text-gold-400">✓</span>
+                          {t(`shareLink.${k}`)}
+                        </li>
+                      ))}
+                    </ul>
+                    <p className="mt-5 text-base font-extrabold uppercase tracking-wide text-gold-400">{t('shareLink.pitch_close')}</p>
                     <Link to="/member/join" onClick={() => rememberPostToReturnTo(pathname)} className="mt-4 inline-block rounded-xl bg-gold-400 px-6 py-3 text-lg font-bold text-brand-900 no-underline shadow" data-testid="shared-cta">
                       {t('shareLink.cta')}
                     </Link>

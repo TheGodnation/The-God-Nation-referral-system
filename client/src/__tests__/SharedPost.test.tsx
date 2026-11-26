@@ -41,6 +41,11 @@ describe('A shared post page', () => {
     expect(screen.getByTestId('shared-body')).toHaveTextContent('Come and see.');
     expect(screen.getByTestId('shared-media-note')).toHaveTextContent('2 photos or videos');
     expect(screen.getByTestId('shared-cta')).toHaveAttribute('href', '/member/join');
+    // The founder's invitation, above Join now.
+    expect(screen.getByTestId('shared-pitch-title')).toHaveTextContent('Become an equipped, connected and impactful Kingdom citizen!');
+    expect(screen.getByTestId('shared-join')).toHaveTextContent("Don't just be a believer.");
+    expect(screen.getByTestId('shared-pitch-points')).toHaveTextContent('Represent the Kingdom.');
+    expect(screen.getByTestId('shared-join')).toHaveTextContent('Be part of The God Nation!');
     expect(screen.getByTestId('shared-more')).toHaveTextContent('Meeting');
     // an existing member can sign in and go straight into the community
     expect(screen.getByTestId('shared-signin')).toHaveAttribute('href', '/member/login');
