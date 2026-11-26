@@ -27,7 +27,7 @@ describe('the teaching guide', () => {
     expect(screen.getByTestId('guide-choose')).toHaveTextContent('Pick only one');
   });
 
-  it('says the rating card appears by itself 25 minutes after the time starts', () => {
+  it('says the rating card appears by itself 25 minutes after the last voice note', () => {
     render(<MemoryRouter><MemberTeachingGuidePage /></MemoryRouter>);
     expect(screen.getByTestId('guide-way1')).toHaveTextContent('25 minutes');
     expect(screen.getByTestId('teaching-guide')).not.toHaveTextContent('20 minutes');

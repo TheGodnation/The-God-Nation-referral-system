@@ -7,14 +7,21 @@ import { isFrench } from './privateNotice';
 import { DAY, MIN, LEVELS, RotaError, emptyCounts, isRater, loadBase, pickText, slotStart, topicNumberFor, weekNumber, type Level } from './teachingRota';
 
 // The rating card in the teaching group's chat. When a teacher has finished (they tap "I have finished my teaching", or it
-// happens by itself 25 minutes after their slot starts) a card is posted in the group, right after their voice notes:
+// happens by itself 25 minutes after their last voice note of that teaching) a card is posted in the group, right after their voice notes:
 // "{Name} has finished teaching {topic}. Listen to the teaching, then rate it." Members tap one of four levels, at any time,
 // and can change their mind. The group sees how many gave each level and who rated, each with their name, photo and the level
 // they gave. The National Coordinator counts as a rater, listed first. The teacher is told when someone
 // rates (never by whom, in the phone alert). Nobody rates their own.
 
-/** The card appears by itself this long after the slot starts, if the teacher has not tapped the button. */
+/**
+ * The card appears by itself this long after the teacher's LAST voice note of the teaching, if they have not tapped the button. It
+ * follows the teacher, not the clock: a teacher who starts late still gets the card after their teaching, and each new voice note
+ * starts the wait again. A teacher who sends no voice note gets no automatic card.
+ */
 export const AUTO_CARD_AFTER_MIN = 25;
+/** Voice notes from this long before the slot starts until this long after it count as that slot's teaching. */
+const AUTO_CARD_EARLY_MIN = 30;
+const AUTO_CARD_WINDOW_HOURS = 24;
 /** A card that is overdue by more than this is not posted any more (the server was down for days). */
 const AUTO_CARD_CUTOFF_DAYS = 3;
 /** The "I have finished" button is there from the start of the slot until this long after it. */
@@ -204,7 +211,27 @@ export async function finishTeaching(personId: string, now = new Date()) {
   return { posted };
 }
 
-/** Posts the card for every teaching whose card is overdue (25 minutes after the slot started, the teacher did not tap). */
+/** When the teacher's last voice note of this slot's teaching was sent in the group (null when they sent none). */
+async function lastTeachingVoiceAt(communityId: string, personId: string, startsAt: Date, now: Date): Promise<Date | null> {
+  const from = new Date(startsAt.getTime() - AUTO_CARD_EARLY_MIN * MIN);
+  const until = new Date(Math.min(startsAt.getTime() + AUTO_CARD_WINDOW_HOURS * 60 * MIN, now.getTime() + 1));
+  if (now.getTime() < from.getTime()) return null;
+  const last = await prisma.message.findFirst({
+    where: {
+      conversation: { communityId },
+      senderPersonId: personId,
+      kind: 'USER',
+      deletedAt: null,
+      createdAt: { gte: from, lt: until },
+      attachments: { some: { mimeType: { startsWith: 'audio/' } } },
+    },
+    orderBy: { createdAt: 'desc' },
+    select: { createdAt: true },
+  });
+  return last?.createdAt ?? null;
+}
+
+/** Posts the card for every teaching whose card is due: 25 minutes after the teacher's last voice note, when they did not tap. */
 export async function postDueRatingCards(now = new Date()): Promise<number> {
   const settings = await prisma.teachingSettings.findUnique({ where: { id: 'main' }, select: { enabled: true, ratersCommunityId: true, startDate: true } });
   if (!settings?.enabled || !settings.ratersCommunityId) return 0;
@@ -214,7 +241,11 @@ export async function postDueRatingCards(now = new Date()): Promise<number> {
   for (const monday of [thisMonday, addDays(thisMonday, -7)]) {
     if (monday.getTime() < settings.startDate.getTime()) continue;
     for (const t of teachers) {
-      const due = slotStart(monday, t.dayOfWeek, t.startMinute).getTime() + AUTO_CARD_AFTER_MIN * MIN;
+      const startsAt = slotStart(monday, t.dayOfWeek, t.startMinute);
+      if (now.getTime() < startsAt.getTime()) continue;
+      const lastVoice = await lastTeachingVoiceAt(settings.ratersCommunityId, t.personId!, startsAt, now);
+      if (!lastVoice) continue; // no teaching sent (yet): no automatic card
+      const due = lastVoice.getTime() + AUTO_CARD_AFTER_MIN * MIN;
       if (now.getTime() < due || now.getTime() > due + AUTO_CARD_CUTOFF_DAYS * DAY) continue;
       if (await postCard(t.id, monday)) posted++;
     }
