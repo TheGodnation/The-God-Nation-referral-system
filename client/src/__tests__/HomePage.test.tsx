@@ -61,10 +61,10 @@ describe('HomePage', () => {
     expect(await screen.findByText(/Allez dans les espaces des médias numériques/)).toBeInTheDocument();
   });
 
-  it('shows twelve "Discover The God Nation" slides after the motto and before the community section, in English and French, ending with the invitation to join', async () => {
+  it('shows ten "Discover The God Nation" slides after the motto and before the community section, in English and French, ending with the invitation to join', async () => {
     const { container } = show();
     const slides = screen.getByTestId('discover-slides');
-    expect(slides.querySelectorAll('article')).toHaveLength(12);
+    expect(slides.querySelectorAll('article')).toHaveLength(10);
     expect(screen.getByRole('heading', { level: 3, name: 'A Kingdom revival movement is emerging!' })).toBeInTheDocument();
     expect(screen.getByRole('heading', { level: 3, name: 'Get trained. Get equipped. Get certified.' })).toBeInTheDocument();
     expect(screen.getByRole('heading', { level: 3, name: 'You have a place. You have a role. Join the movement!' })).toBeInTheDocument();
@@ -80,16 +80,27 @@ describe('HomePage', () => {
     expect(within(last).queryByTestId('discover-whatsapp')).toBeNull();
     expect(within(last).getAllByRole('link')).toHaveLength(2);
     // Each photograph sits on the slide whose words it shows; slides 2 and 12 stay plain and bright. No book cover.
-    expect(slides.querySelectorAll('article img[src^="/site/"]')).toHaveLength(10);
+    expect(slides.querySelectorAll('article img[src^="/site/"]')).toHaveLength(9);
+    // Spiritual training and Discipleship are part of the Leadership Academy slide now, with the Academy's own photo.
+    expect(screen.queryByTestId('discover-slide-2')).toBeNull();
+    expect(screen.queryByTestId('discover-slide-10')).toBeNull();
+    const academy = screen.getByTestId('discover-slide-3');
+    expect(academy).toHaveTextContent('Leadership Academy');
+    expect(academy).toHaveTextContent('16 structured e-books');
+    expect(academy).toHaveTextContent('Learn. Share. Teach. Disciple others.');
+    expect(academy).toHaveTextContent('After your training, join The God Nation team carrying the Gospel through modern media.');
+    expect(academy).toHaveTextContent('02 / 10');
+    expect(academy.querySelector('img[src="/site/skills-learning.jpg"]')).not.toBeNull();
+    expect(screen.getByTestId('discover-slide-12')).toHaveTextContent('10 / 10');
+    expect(screen.queryByText("Don't keep the Gospel to yourself.")).toBeNull();
     expect(screen.getByTestId('discover-slide-8').querySelector('img[src="/site/national-network.jpg"]')).not.toBeNull();
     expect(screen.getByTestId('discover-slide-9').querySelector('img[src="/site/mutual-support.jpg"]')).not.toBeNull();
     expect(slides.querySelector('img[src="/site/session-presenter.jpg"]')).toBeNull(); // the unclear photo is gone
-    expect(screen.getByTestId('discover-slide-2').querySelector('img[src^="/site/"]')).toBeNull();
     expect(screen.queryByTestId('discover-book')).toBeNull();
     // The first and last slide have no topic tag: no "The introduction", no "The invitation".
     expect(screen.queryByText('The introduction')).toBeNull();
     expect(screen.queryByText('The invitation')).toBeNull();
-    expect(screen.getByText('Spiritual training')).toBeInTheDocument();
+    expect(screen.queryByText('Spiritual training')).toBeNull();
     expect(screen.queryByText('Everything you need to grow and make an impact.')).toBeNull(); // the old heading above the slides is gone
     expect(screen.queryByText('What you can experience')).toBeNull();
     fireEvent.click(screen.getByRole('button', { name: 'Français' }));

@@ -1,12 +1,13 @@
 import { Link } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
-import { ChartIcon, ChatHeartIcon, CompassIcon, GlobeIcon, GraduationCapIcon, HeartHandsIcon, MediaPlayIcon, OpenBookIcon, SproutIcon, UsersIcon } from './Icons';
+import { ChartIcon, ChatHeartIcon, CompassIcon, GlobeIcon, GraduationCapIcon, HeartHandsIcon, MediaPlayIcon, UsersIcon } from './Icons';
 
 type IconType = (p: { className?: string }) => JSX.Element;
 
+// `n` names the slide's words (discover.s<n>_…); the slides are numbered on screen in the order below. Spiritual training (2) and
+// Discipleship (10) are part of the Leadership Academy slide (3) now.
 const SLIDES: { n: number; Icon: IconType }[] = [
   { n: 1, Icon: GlobeIcon },
-  { n: 2, Icon: OpenBookIcon },
   { n: 3, Icon: GraduationCapIcon },
   { n: 4, Icon: MediaPlayIcon },
   { n: 5, Icon: UsersIcon },
@@ -14,7 +15,6 @@ const SLIDES: { n: number; Icon: IconType }[] = [
   { n: 7, Icon: ChartIcon },
   { n: 8, Icon: CompassIcon },
   { n: 9, Icon: HeartHandsIcon },
-  { n: 10, Icon: SproutIcon },
   { n: 11, Icon: UsersIcon },
   { n: 12, Icon: GlobeIcon },
 ];
@@ -25,7 +25,7 @@ const COUNT = SLIDES.length;
  * plain version (no picture, no dark card) so nothing is ever a broken picture.
  *  - `at`: which part of the picture stays in view when it is cropped to the slide.
  *  - `zoom`: enlarge the picture around that point (used to leave out something at the edge of the photo).
- * The founder's photographs, each on the slide whose words it shows (slides 2 and 12 stay plain and bright).
+ * The founder's photographs, each on the slide whose words it shows (the last slide stays plain and bright).
  */
 interface Photo {
   src: string;
@@ -34,21 +34,21 @@ interface Photo {
 }
 const PHOTOS: Record<number, Photo> = {
   1: { src: '/site/revival-worship.jpg', at: '38% 45%' },
-  3: { src: '/site/session-room.jpg', at: '30% 50%' },
+  // The Academy's own banner ("The God Nation Media & Leadership Academy — Learn · Grow · Lead") with students at work.
+  3: { src: '/site/skills-learning.jpg', at: '72% 40%' },
   4: { src: '/site/digital-online.jpg', at: '30% 50%' },
   5: { src: '/site/session-close.jpg', at: '50% 40%' },
   6: { src: '/site/prayer-group.jpg', at: '45% 55%' },
-  7: { src: '/site/skills-learning.jpg', at: '25% 50%' },
+  7: { src: '/site/session-room.jpg', at: '45% 85%', zoom: 1.45 },
   8: { src: '/site/national-network.jpg', at: '55% 40%' },
   9: { src: '/site/mutual-support.jpg', at: '48% 50%' },
-  10: { src: '/site/discipleship-teaching.jpg', at: '58% 40%' },
   11: { src: '/site/unity-friends.jpg', at: '45% 40%' },
 };
 
 const SHADOW = '[text-shadow:0_1px_3px_rgba(0,0,0,0.55),0_2px_18px_rgba(0,0,0,0.45)]';
 
-// "Discover The God Nation": twelve slides, one under the other, each showing a different side of the movement (training, leadership
-// academy, digital evangelism, community, prayer, skills, representation, mutual support, discipleship, unity) and ending with the
+// "Discover The God Nation": ten slides, one under the other, each showing a different side of the movement (the leadership academy
+// with its training, digital evangelism, community, prayer, skills, representation, mutual support, unity) and ending with the
 // invitation to join. A slide is its photograph, edge to edge and bright, with the headline written straight on it in white (only the
 // lower part of the picture is darkened a little, so the words stay readable and the top of the photo stays bright). Same logo and
 // type on every slide; the headline is big enough to read on a phone.
@@ -59,9 +59,9 @@ export function DiscoverSlides() {
     <>
       <h2 className="sr-only">{t('discover.heading')}</h2>
       <ol className="-mx-4 space-y-1 sm:mx-0 sm:space-y-4" data-testid="discover-slides" aria-label={t('discover.aria')}>
-        {SLIDES.map(({ n, Icon }) => {
+        {SLIDES.map(({ n, Icon }, index) => {
           const photo = PHOTOS[n];
-          const last = n === COUNT;
+          const last = index === COUNT - 1;
           const tag = t(`discover.s${n}_tag`, { defaultValue: '' });
           // Slides 1 and 12 have no topic tag: their headline says it all ("A Kingdom revival movement is emerging!", "You have a place…").
           const label = t(`discover.s${n}_label`, { defaultValue: '' });
@@ -96,7 +96,7 @@ export function DiscoverSlides() {
                     <span className="text-[11px] font-bold uppercase tracking-widest text-brand-900">The God Nation</span>
                   </span>
                   <span className="rounded-full bg-white/90 px-2.5 py-1 text-xs font-semibold tabular-nums text-brand-900 shadow-sm">
-                    {String(n).padStart(2, '0')} / {COUNT}
+                    {String(index + 1).padStart(2, '0')} / {COUNT}
                   </span>
                 </header>
 
