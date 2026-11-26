@@ -179,6 +179,7 @@ export function SharedPostPage() {
                       ))}
                     </ul>
                     <p className="mt-5 text-base font-extrabold uppercase tracking-wide text-gold-400">{t('shareLink.pitch_close')}</p>
+                    <p className="mx-auto mt-1 max-w-prose text-[15px] font-semibold text-white">{t('shareLink.pitch_together')}</p>
                     <Link to="/member/join" onClick={() => rememberPostToReturnTo(pathname)} className="mt-4 inline-block rounded-xl bg-gold-400 px-6 py-3 text-lg font-bold text-brand-900 no-underline shadow" data-testid="shared-cta">
                       {t('shareLink.cta')}
                     </Link>
