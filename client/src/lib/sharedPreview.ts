@@ -4,7 +4,7 @@
 /** Posts shorter than this are shown whole: cutting a few lines would only annoy. */
 export const SHOW_WHOLE_BELOW = 400;
 /** How much of the writing a visitor reads before being invited to join. */
-export const PREVIEW_SHARE = 1 / 3;
+export const PREVIEW_SHARE = 1 / 2;
 /** Never fewer paragraphs than this (when the post has more). */
 export const MIN_PARAGRAPHS = 2;
 
@@ -25,7 +25,7 @@ export function previewOf(text: string): { shown: string; cut: boolean } {
     if (kept.length < paragraphs.length) return { shown: kept.join('\n\n'), cut: true };
     return { shown: clean, cut: false };
   }
-  // Few, long paragraphs: stop at the end of a sentence near a third of the way in.
+  // Few, long paragraphs: stop at the end of a sentence near half way.
   const after = clean.slice(Math.floor(target));
   const end = after.search(/[.!?…](\s|$)/);
   if (end < 0) return { shown: clean, cut: false };

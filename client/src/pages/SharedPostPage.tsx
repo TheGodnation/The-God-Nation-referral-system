@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { Link, useLocation, useParams } from 'react-router-dom';
+import { Link, Navigate, useLocation, useParams } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { PageShell } from '../components/PageShell';
 import { RichText } from '../lib/richText';
@@ -26,9 +26,10 @@ interface SharedItem {
   more: { kind: 'post' | 'announcement' | 'update'; id: string; title: Bi }[];
 }
 
-// A post or announcement the central admin shared by link (https://thegodnationacademy.org/news/post/<id>). A member reads all of
-// it. A visitor who is not a member reads the beginning (about a third, never fewer than two paragraphs), then is invited to join to
-// read the rest; after joining or signing in they are brought back to this same post. Photos, comments and the rest stay in the app.
+// A post or announcement the central admin shared by link (https://thegodnationacademy.org/news/post/<id>). A member who opens a
+// central post's link goes straight into the app, to the Home page with that post first and open; other shared items they read here
+// in full. A visitor who is not a member reads the first half (never fewer than two paragraphs), then is invited to join to read the
+// rest; after joining or signing in they are brought back to it (a member then lands on the Home page as above).
 export function SharedPostPage() {
   const { t, i18n } = useTranslation();
   const { kind, id } = useParams();
@@ -55,6 +56,9 @@ export function SharedPostPage() {
   }, [kind, id]);
 
   useDocumentMeta(item ? item.title[lang] : t('shareLink.page_fallback'), item ? item.body[lang].slice(0, 160) : '');
+
+  // A member: a central post opens where it lives in the app (Home), with its photos, comments and reactions.
+  if (member && !authLoading && kind === 'post' && id) return <Navigate to={`/member/updates?open=${encodeURIComponent(id)}`} replace />;
 
   return (
     <PageShell>

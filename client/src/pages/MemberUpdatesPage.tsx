@@ -1,4 +1,5 @@
 import { useTranslation } from 'react-i18next';
+import { useSearchParams } from 'react-router-dom';
 import { PageShell } from '../components/PageShell';
 import { NotificationBell } from '../components/NotificationBell';
 import { MemberNav } from '../components/member/MemberNav';
@@ -18,6 +19,9 @@ import { usePublicSettings } from '../lib/usePublicSettings';
 export function MemberUpdatesPage() {
   const { t } = useTranslation();
   const { homeWallpaper } = usePublicSettings();
+  // A shared post link opened by a member lands here (?open=<post id>): that post comes first, already open.
+  const [params] = useSearchParams();
+  const openId = params.get('open');
   return (
     <PageShell minimal>
       <div className="min-h-full" style={resolveWallpaperStyle(homeWallpaper?.preset ?? null, homeWallpaper?.imageUrl ?? null)}>
@@ -32,7 +36,7 @@ export function MemberUpdatesPage() {
             <div className="px-4 empty:hidden sm:px-0">
               <LiveBanner />
             </div>
-            <HeadquartersPosts variant="feed" />
+            <HeadquartersPosts variant="feed" openId={openId} />
             <UpdatesFeed showComposer={false} linkAuthors wall />
           </div>
           <MemberNav />
