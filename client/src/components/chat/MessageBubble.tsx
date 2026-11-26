@@ -1,4 +1,5 @@
-import { LinkPreviewCard } from '../LinkPreviewCard';
+import { LinkPreviewCard, firstUrl } from '../LinkPreviewCard';
+import { SharedPostChatCard, sharedPostLink } from './SharedPostChatCard';
 import { CoordinatorBadge } from '../CoordinatorBadge';
 import { useEffect, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
@@ -524,7 +525,12 @@ export function MessageBubble({ m, mediaBase, showSender: showSenderProp, highli
                     </div>
                   )}
                   <RichText className={`whitespace-pre-wrap break-words text-slate-900 ${isLongBody && !expanded ? 'line-clamp-6' : ''}`} text={displayBody} headings comfort={STRUCTURED.test(displayBody)} />
-                  <LinkPreviewCard text={displayBody} />
+                  {/* In an assembly or group, a link to one of our own posts is a bold card that opens the post over the chat. */}
+                  {!privateChat && sharedPostLink(firstUrl(displayBody)) ? (
+                    <SharedPostChatCard url={firstUrl(displayBody)!} fallback={<LinkPreviewCard text={displayBody} />} />
+                  ) : (
+                    <LinkPreviewCard text={displayBody} />
+                  )}
                   {/* Read comfortably sits at the start of the text; under it, one under the other: Read more / Read less, then Show original. */}
                   <div className="mt-1 flex flex-col items-start gap-1">
                     {isLongBody && (

@@ -6092,6 +6092,11 @@
     "save_failed": "Could not save. Try again.",
     "load_failed": "Could not load. Try again."
   },
+  "chatPostCard": {
+    "label": "The God Nation",
+    "read_more": "Read more",
+    "back": "Back to the chat"
+  },
   "shareLink": {
     "button": "Share by link",
     "member_title": "Share with my link",

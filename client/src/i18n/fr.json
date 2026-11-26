@@ -6092,6 +6092,11 @@
     "save_failed": "Enregistrement impossible. Réessayez.",
     "load_failed": "Chargement impossible. Réessayez."
   },
+  "chatPostCard": {
+    "label": "The God Nation",
+    "read_more": "Lire la suite",
+    "back": "Retour à la discussion"
+  },
   "shareLink": {
     "button": "Partager par lien",
     "member_title": "Partager avec mon lien",
