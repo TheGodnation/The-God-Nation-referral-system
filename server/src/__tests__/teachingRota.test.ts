@@ -3,6 +3,7 @@ import request from 'supertest';
 import bcrypt from 'bcryptjs';
 import { createApp } from '../app';
 import { prisma } from '../lib/prisma';
+import { getOrCreateConversation } from '../lib/communityConversation';
 import { EmailService } from '../lib/email';
 import { bootstrap } from './testUtils';
 import { sendAssignmentsNow, sendHowToNow, sendRotaReminders } from '../lib/teachingReminders';
@@ -433,18 +434,55 @@ describe('the rating card in the group', () => {
     expect(cards[0].senderPersonId).toBe(people.alpha.id);
   });
 
-  it('posts the card by itself 25 minutes after the slot starts, unless the teacher already did or it is very late', async () => {
+  // A voice note (or a text) sent in the group at a given time.
+  async function send(personId: string, communityId: string, iso: string, voice = true) {
+    const conversation = await getOrCreateConversation(communityId);
+    const m = await prisma.message.create({ data: { conversationId: conversation.id, senderPersonId: personId, createdAt: at(iso), body: voice ? null : 'hello' } });
+    if (voice) await prisma.messageAttachment.create({ data: { messageId: m.id, storageKey: `voice-${m.id}`, originalFilename: 'voice.webm', mimeType: 'audio/webm', byteSize: 10, uploadedByPersonId: personId } });
+    return m;
+  }
+
+  it('posts the card by itself 25 minutes after the teacher’s last voice note, unless the teacher already did or it is very late', async () => {
     const { people } = await setUp();
     const g = await group();
-    expect(await postDueRatingCards(at('2026-11-23T06:24:00Z'))).toBe(0); // 24 minutes after 07:00
-    expect(await postDueRatingCards(at('2026-11-23T06:26:00Z'))).toBe(1); // Alpha
-    expect(await postDueRatingCards(at('2026-11-23T06:30:00Z'))).toBe(0); // not twice
+    // Alpha (Monday 07:00 = 06:00Z) is late: nothing at 07:25 while no teaching was sent
+    expect(await postDueRatingCards(at('2026-11-23T06:26:00Z'))).toBe(0);
+    await send(people.alpha.id, g.id, '2026-11-23T06:40:00Z');
+    await send(people.alpha.id, g.id, '2026-11-23T06:50:00Z');
+    expect(await postDueRatingCards(at('2026-11-23T07:14:00Z'))).toBe(0); // 24 minutes after the last voice note
+    await send(people.alpha.id, g.id, '2026-11-23T07:10:00Z'); // one more part: the wait starts again
+    expect(await postDueRatingCards(at('2026-11-23T07:16:00Z'))).toBe(0);
+    expect(await postDueRatingCards(at('2026-11-23T07:35:00Z'))).toBe(1); // 25 minutes after 08:10
+    expect(await postDueRatingCards(at('2026-11-23T07:40:00Z'))).toBe(0); // not twice
+    const card = (await cardsIn(g.id))[0];
+    const last = await prisma.message.findFirstOrThrow({ where: { senderPersonId: people.alpha.id, kind: 'USER' }, orderBy: { createdAt: 'desc' } });
+    expect(card.createdAt.getTime()).toBeGreaterThan(last.createdAt.getTime()); // after the teaching
     // Beta taps at 16:05 (15:05Z); the automatic one finds the card already there
+    await send(people.beta.id, g.id, '2026-11-23T15:01:00Z');
     await finishTeaching(people.beta.id, at('2026-11-23T15:05:00Z'));
     expect(await postDueRatingCards(at('2026-11-23T15:30:00Z'))).toBe(0);
     expect(await cardsIn(g.id)).toHaveLength(2);
     // Gamma (Tuesday 20:00): a card that is more than 3 days overdue is not posted any more
+    await send(people.gamma.id, g.id, '2026-11-24T19:10:00Z');
     expect(await postDueRatingCards(at('2026-11-28T20:00:00Z'))).toBe(0);
+  });
+
+  it('counts only the teacher’s own voice notes in the teaching group around their slot', async () => {
+    const { people } = await setUp();
+    const g = await group();
+    const other = await prisma.community.create({ data: { name: `Other ${++n}` } });
+    const stranger = await person('Stranger');
+    await send(stranger.id, g.id, '2026-11-23T06:05:00Z'); // someone else's voice note
+    await send(people.alpha.id, g.id, '2026-11-23T06:06:00Z', false); // a text, not a voice note
+    await send(people.alpha.id, other.id, '2026-11-23T06:07:00Z'); // in another group
+    await send(people.alpha.id, g.id, '2026-11-23T05:00:00Z'); // more than half an hour before the slot
+    expect(await postDueRatingCards(at('2026-11-23T07:00:00Z'))).toBe(0);
+    const removed = await send(people.alpha.id, g.id, '2026-11-23T06:10:00Z');
+    await prisma.message.update({ where: { id: removed.id }, data: { deletedAt: new Date() } }); // a deleted one does not count
+    expect(await postDueRatingCards(at('2026-11-23T07:00:00Z'))).toBe(0);
+    await send(people.alpha.id, g.id, '2026-11-23T05:45:00Z'); // a quarter of an hour early counts
+    expect(await postDueRatingCards(at('2026-11-23T06:09:00Z'))).toBe(0); // the slot itself started at 06:00Z, last voice 05:45: due 06:10
+    expect(await postDueRatingCards(at('2026-11-23T06:11:00Z'))).toBe(1);
   });
 
   it('suggests the group called Leadership Development when the plan is loaded', async () => {

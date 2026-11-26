@@ -6249,7 +6249,7 @@
         "Regardez juste au-dessus de la zone où vous écrivez. Touchez le bouton [[J'ai terminé mon enseignement]].",
         "Une carte de notation apparaît maintenant dans le groupe. Les membres peuvent écouter et noter."
       ],
-      "tip": "Si vous oubliez de toucher le bouton, ne vous inquiétez pas. La carte apparaît toute seule, **25 minutes** après le début de votre heure."
+      "tip": "Si vous oubliez de toucher le bouton, ne vous inquiétez pas. La carte apparaît toute seule, **25 minutes** après votre dernière note vocale."
     },
     "way2": {
       "tag": "Façon 2 · À l'avance (seulement avant votre heure)",

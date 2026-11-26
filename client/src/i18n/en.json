@@ -6249,7 +6249,7 @@
         "Look just above the box where you type. Tap the button [[I have finished my teaching]].",
         "A rating card now appears in the group. Members can listen and rate."
       ],
-      "tip": "If you forget to tap the button, do not worry. The card appears by itself, **25 minutes** after your time begins."
+      "tip": "If you forget to tap the button, do not worry. The card appears by itself, **25 minutes** after your last voice note."
     },
     "way2": {
       "tag": "Way 2 · Ahead of time (only before your time)",

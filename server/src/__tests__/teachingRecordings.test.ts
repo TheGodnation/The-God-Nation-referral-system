@@ -176,7 +176,7 @@ describe('posting at the teaching time', () => {
     await expect(saveTranscript(person.id, WEEK, 'trop tard', at('2026-11-25T06:10:00Z'))).rejects.toMatchObject({ code: 'POSTED' });
   });
 
-  it('still posts when the teacher did not finish: with the text as it is, and the rating card follows 25 minutes after the time', async () => {
+  it('still posts when the teacher did not finish: with the text as it is, and the rating card follows 25 minutes after the voice note', async () => {
     const { group, teacher } = await ready(false); // text written but not approved
     expect(await postDueRecordings(at('2026-11-25T06:01:00Z'))).toBe(1);
     const conversation = await prisma.conversation.findFirstOrThrow({ where: { communityId: group.id } });
