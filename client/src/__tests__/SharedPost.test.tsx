@@ -47,7 +47,7 @@ describe('A shared post page', () => {
     expect(screen.getByTestId('shared-pitch-points')).toHaveTextContent('Represent the Kingdom.');
     expect(screen.getByTestId('shared-join')).toHaveTextContent('Be a voice. Be part of The God Nation!');
     expect(screen.getByTestId('shared-join')).not.toHaveTextContent('Be equipped. Be connected.');
-    expect(screen.getByTestId('shared-join')).toHaveTextContent("Together, let's reach the billions of people online through modern methods.");
+    expect(screen.getByTestId('shared-join')).toHaveTextContent("Together, let's reach the billions of people online through modern media.");
     expect(screen.getByTestId('shared-more')).toHaveTextContent('Meeting');
     // an existing member can sign in and go straight into the community
     expect(screen.getByTestId('shared-signin')).toHaveAttribute('href', '/member/login');
