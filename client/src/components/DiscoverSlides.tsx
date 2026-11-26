@@ -31,14 +31,15 @@ interface Photo {
   src: string;
   at?: string;
   zoom?: number;
-  /** Shown whole, nothing cut off (a picture made of several photos): framed under the logo, on a blurred copy of itself. */
+  /** Shown whole, nothing cut off: framed under the logo, on a blurred copy of itself. */
   whole?: boolean;
 }
 const PHOTOS: Record<number, Photo> = {
   1: { src: '/site/revival-worship.jpg', at: '38% 45%' },
-  // The Academy in four pictures (teaching, prayer and study, the Media & Leadership Academy, studying online), shown whole.
-  3: { src: '/site/academy-collage.jpg', whole: true },
-  4: { src: '/site/digital-online.jpg', at: '30% 50%' },
+  // A teacher with his class: shown whole, nothing cut off.
+  3: { src: '/site/discipleship-teaching.jpg', whole: true },
+  // Phone and laptop on a video call, shown whole (the words on the screen behind are left out of the picture).
+  4: { src: '/site/digital-online.jpg', whole: true },
   5: { src: '/site/session-close.jpg', at: '50% 40%' },
   6: { src: '/site/prayer-group.jpg', at: '45% 55%' },
   7: { src: '/site/skills-learning.jpg', at: '25% 50%' },
