@@ -95,9 +95,6 @@ export function DiscoverSlides() {
                     <img src="/icons/icon-192.png" alt="" className="h-7 w-7 rounded-full object-contain" />
                     <span className="text-[11px] font-bold uppercase tracking-widest text-brand-900">The God Nation</span>
                   </span>
-                  <span className="rounded-full bg-white/90 px-2.5 py-1 text-xs font-semibold tabular-nums text-brand-900 shadow-sm">
-                    {String(index + 1).padStart(2, '0')} / {COUNT}
-                  </span>
                 </header>
 
                 <div className="mt-16">

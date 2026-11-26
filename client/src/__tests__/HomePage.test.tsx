@@ -89,9 +89,8 @@ describe('HomePage', () => {
     expect(academy).toHaveTextContent('16 structured e-books');
     expect(academy).toHaveTextContent('Learn. Share. Teach. Disciple others.');
     expect(academy).toHaveTextContent('After your training, join The God Nation team carrying the Gospel through modern media.');
-    expect(academy).toHaveTextContent('02 / 10');
+    expect(academy).not.toHaveTextContent('/ 10'); // no slide numbers
     expect(academy.querySelector('img[src="/site/skills-learning.jpg"]')).not.toBeNull();
-    expect(screen.getByTestId('discover-slide-12')).toHaveTextContent('10 / 10');
     expect(screen.queryByText("Don't keep the Gospel to yourself.")).toBeNull();
     expect(screen.getByTestId('discover-slide-8').querySelector('img[src="/site/national-network.jpg"]')).not.toBeNull();
     expect(screen.getByTestId('discover-slide-9').querySelector('img[src="/site/mutual-support.jpg"]')).not.toBeNull();
