@@ -248,13 +248,13 @@ describe('the picture of a shared post', () => {
     expect(await cardImagePath('post', post.id)).toBeNull(); // not shared yet: nothing is public
     expect(await sharedPhotos('post', post.id)).toEqual([]);
     await shareByLink('post', post.id);
-    expect(await cardImagePath('post', post.id)).toBe(`api/shared/post/${post.id}/card.jpg`); // always cut to card size
-    expect((await sharedPreview('post', post.id, 'en'))!.image).toBe(`api/shared/post/${post.id}/card.jpg`);
+    expect(await cardImagePath('post', post.id)).toBe(`api/shared/post/${post.id}/card.jpg?v=whole`); // always made to card size
+    expect((await sharedPreview('post', post.id, 'en'))!.image).toBe(`api/shared/post/${post.id}/card.jpg?v=whole`);
     // any size works now: a very large picture is cut down for the card; only one too big to open at all keeps the usual card
     const big = await makePost();
     await photoOf(big.id, { byteSize: 9_000_000 });
     await shareByLink('post', big.id);
-    expect(await cardImagePath('post', big.id)).toBe(`api/shared/post/${big.id}/card.jpg`);
+    expect(await cardImagePath('post', big.id)).toBe(`api/shared/post/${big.id}/card.jpg?v=whole`);
     const huge = await makePost();
     await photoOf(huge.id, { byteSize: 60_000_000 });
     await shareByLink('post', huge.id);
@@ -295,7 +295,35 @@ describe('pictures of any size and shape are made right for the card and the pag
     return bytes.length;
   };
 
-  it('cuts a big tall picture to exactly 1200x630 and well under WhatsApp’s limit', async () => {
+  it('shows the WHOLE of a tall flyer on the card (nothing cut off top or bottom), on a blurred copy of itself', async () => {
+    const post = await makePost();
+    // A tall flyer: a green band at the very top, a blue band at the very bottom, red in between.
+    const flyer = await sharp({ create: { width: 600, height: 1200, channels: 3, background: { r: 220, g: 30, b: 30 } } })
+      .composite([
+        { input: await sharp({ create: { width: 600, height: 120, channels: 3, background: { r: 0, g: 200, b: 0 } } }).png().toBuffer(), top: 0, left: 0 },
+        { input: await sharp({ create: { width: 600, height: 120, channels: 3, background: { r: 0, g: 0, b: 220 } } }).png().toBuffer(), top: 1080, left: 0 },
+      ])
+      .jpeg({ quality: 95 })
+      .toBuffer();
+    const key = `pic/flyer-${Math.random().toString(36).slice(2)}.jpg`;
+    stored.set(key, flyer);
+    await prisma.headquartersPostMedia.create({ data: { headquartersPostId: post.id, position: 0, storageKey: key, originalFilename: 'flyer.jpg', mimeType: 'image/jpeg', byteSize: flyer.length, mediaType: 'IMAGE' } });
+    await shareByLink('post', post.id);
+    expect(await cardImagePath('post', post.id)).toBe(`api/shared/post/${post.id}/card.jpg?v=whole`);
+    const res = await request(app).get(`/api/shared/post/${post.id}/card.jpg?v=whole`).buffer(true).parse((r, cb) => { const c: Buffer[] = []; r.on('data', (d) => c.push(d)); r.on('end', () => cb(null, Buffer.concat(c))); });
+    expect(res.status).toBe(200);
+    const { data, info } = await sharp(res.body as Buffer).raw().toBuffer({ resolveWithObject: true });
+    expect([info.width, info.height]).toEqual([1200, 630]);
+    const px = (x: number, y: number) => { const i = (y * info.width + x) * info.channels; return { r: data[i], g: data[i + 1], b: data[i + 2] }; };
+    const top = px(600, 20);
+    const bottom = px(600, 610);
+    expect(top.g).toBeGreaterThan(150); // the green top band is there (a cut card would start in the red)
+    expect(top.r).toBeLessThan(80);
+    expect(bottom.b).toBeGreaterThan(150); // and the blue bottom band
+    expect(bottom.r).toBeLessThan(80);
+  });
+
+  it('makes a big tall picture exactly 1200x630 and well under WhatsApp’s limit', async () => {
     const post = await makePost();
     const original = await store(post.id, 3000, 4000);
     await shareByLink('post', post.id);

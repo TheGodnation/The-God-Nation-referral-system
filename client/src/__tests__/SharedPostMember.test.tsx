@@ -12,7 +12,7 @@ const json = (body: unknown, status = 200) => Promise.resolve({ ok: status < 300
 afterEach(() => vi.unstubAllGlobals());
 
 describe('A shared announcement opened by a signed-in member', () => {
-  it('shows it whole and offers to go into the community', async () => {
+  it('shows it whole and offers the Headquarters assembly (Chats when it cannot be found)', async () => {
     vi.stubGlobal('fetch', vi.fn((url: string) => (String(url).includes('/api/shared/') ? json({ kind: 'announcement', id: 'p1', title: { en: 'Good news', fr: 'Bonne nouvelle' }, body: { en: 'Come.', fr: 'Venez.' }, author: 'The God Nation', publishedAt: null, mediaCount: 0, embed: null, more: [] }) : json({ content: {} }))));
     render(
       <MemoryRouter initialEntries={['/news/announcement/p1']}>

@@ -191,8 +191,9 @@ export async function cardImagePath(kind: SharedKind, id: string): Promise<strin
 async function cardImage(kind: SharedKind, id: string): Promise<{ path: string; bytes: number } | null> {
   const first = (await sharedPhotos(kind, id))[0];
   if (!first) return null;
-  // With the image tool, any picture is cut to 1200x630 and kept small, so every size works (bytes: what WhatsApp will fetch).
-  if (first.byteSize <= MAX_INPUT_BYTES && (await isPhotoResizingAvailable())) return { path: `api/shared/${kind}/${id}/card.jpg`, bytes: 0 };
+  // With the image tool, any picture is fitted whole into 1200x630 and kept small, so every size works (bytes: what WhatsApp will
+  // fetch). "?v=whole": a new address for the new kind of card, so Facebook and WhatsApp do not keep showing an old, cut-off one.
+  if (first.byteSize <= MAX_INPUT_BYTES && (await isPhotoResizingAvailable())) return { path: `api/shared/${kind}/${id}/card.jpg?v=whole`, bytes: 0 };
   // Without it, only a picture of a size the apps accept is used, as it is.
   return first.byteSize <= CARD_PHOTO_MAX_BYTES ? { path: `api/shared/${kind}/${id}/photo/0`, bytes: first.byteSize } : null;
 }
