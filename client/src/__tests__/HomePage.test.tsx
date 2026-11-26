@@ -80,7 +80,7 @@ describe('HomePage', () => {
     expect(within(last).queryByTestId('discover-whatsapp')).toBeNull();
     expect(within(last).getAllByRole('link')).toHaveLength(2);
     // Each photograph sits on the slide whose words it shows; slides 2 and 12 stay plain and bright. No book cover.
-    expect(slides.querySelectorAll('article img[src^="/site/"]')).toHaveLength(9);
+    expect(slides.querySelectorAll('article img[src^="/site/"]')).toHaveLength(10); // 9 photos, the whole one twice (itself + blurred behind)
     // Spiritual training and Discipleship are part of the Leadership Academy slide now, with the Academy's own photo.
     expect(screen.queryByTestId('discover-slide-2')).toBeNull();
     expect(screen.queryByTestId('discover-slide-10')).toBeNull();
@@ -90,7 +90,8 @@ describe('HomePage', () => {
     expect(academy).toHaveTextContent('Learn. Share. Teach. Disciple others.');
     expect(academy).toHaveTextContent('After your training, join The God Nation team carrying the Gospel through modern media.');
     expect(academy).not.toHaveTextContent('/ 10'); // no slide numbers
-    expect(academy.querySelector('img[src="/site/skills-learning.jpg"]')).not.toBeNull();
+    expect(screen.getByTestId('discover-whole-3')).toHaveAttribute('src', '/site/academy-collage.jpg'); // the four-picture Academy photo, whole
+    expect(screen.getByTestId('discover-slide-7').querySelector('img[src="/site/skills-learning.jpg"]')).not.toBeNull();
     expect(screen.queryByText("Don't keep the Gospel to yourself.")).toBeNull();
     expect(screen.getByTestId('discover-slide-8').querySelector('img[src="/site/national-network.jpg"]')).not.toBeNull();
     expect(screen.getByTestId('discover-slide-9').querySelector('img[src="/site/mutual-support.jpg"]')).not.toBeNull();

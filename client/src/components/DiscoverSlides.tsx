@@ -31,15 +31,17 @@ interface Photo {
   src: string;
   at?: string;
   zoom?: number;
+  /** Shown whole, nothing cut off (a picture made of several photos): framed under the logo, on a blurred copy of itself. */
+  whole?: boolean;
 }
 const PHOTOS: Record<number, Photo> = {
   1: { src: '/site/revival-worship.jpg', at: '38% 45%' },
-  // The Academy's own banner ("The God Nation Media & Leadership Academy — Learn · Grow · Lead") with students at work.
-  3: { src: '/site/skills-learning.jpg', at: '72% 40%' },
+  // The Academy in four pictures (teaching, prayer and study, the Media & Leadership Academy, studying online), shown whole.
+  3: { src: '/site/academy-collage.jpg', whole: true },
   4: { src: '/site/digital-online.jpg', at: '30% 50%' },
   5: { src: '/site/session-close.jpg', at: '50% 40%' },
   6: { src: '/site/prayer-group.jpg', at: '45% 55%' },
-  7: { src: '/site/session-room.jpg', at: '45% 85%', zoom: 1.45 },
+  7: { src: '/site/skills-learning.jpg', at: '25% 50%' },
   8: { src: '/site/national-network.jpg', at: '55% 40%' },
   9: { src: '/site/mutual-support.jpg', at: '48% 50%' },
   11: { src: '/site/unity-friends.jpg', at: '45% 40%' },
@@ -74,7 +76,13 @@ export function DiscoverSlides() {
                 }`}
                 data-testid={`discover-slide-${n}`}
               >
-                {photo ? (
+                {photo?.whole ? (
+                  <>
+                    {/* Behind: the same picture, blurred and darkened, filling the slide. The picture itself is shown whole below the logo. */}
+                    <img src={photo.src} alt="" aria-hidden loading="lazy" className="absolute inset-0 -z-20 h-full w-full scale-110 object-cover blur-xl brightness-50" />
+                    <div aria-hidden className="absolute inset-x-0 bottom-0 -z-10 h-[60%] bg-gradient-to-t from-black/80 to-transparent" />
+                  </>
+                ) : photo ? (
                   <>
                     <img
                       src={photo.src}
@@ -97,7 +105,9 @@ export function DiscoverSlides() {
                   </span>
                 </header>
 
-                <div className="mt-16">
+                {photo?.whole && <img src={photo.src} alt="" loading="lazy" className="mt-4 w-full rounded-xl shadow-lg ring-1 ring-white/30" data-testid={`discover-whole-${n}`} />}
+
+                <div className={photo?.whole ? 'mt-6' : 'mt-16'}>
                   {label && <p className={`mb-3 inline-block rounded-full px-3 py-1 text-xs font-bold uppercase tracking-widest ${onPhoto ? 'bg-gold-400 text-brand-950' : 'bg-brand-600 text-white'}`}>{label}</p>}
                   <h3 className={`text-4xl font-extrabold leading-[1.1] tracking-tight sm:text-5xl ${onPhoto ? SHADOW : 'text-brand-900'}`}>{t(`discover.s${n}_title`)}</h3>
                   <p className={`mt-4 max-w-xl text-base sm:text-lg ${onPhoto ? `text-white ${SHADOW}` : 'text-slate-700'}`}>{t(`discover.s${n}_body`)}</p>
