@@ -266,3 +266,25 @@ describe('Sharing a post by link from the ⋯ menu', () => {
   });
 });
 
+describe('A shared post link opened by a member', () => {
+  it('puts that post first and open, even when it is older than the first page of posts', async () => {
+    const OLD = { ...HQ, id: 'hq-old', titleEn: 'An older teaching', media: [] };
+    const NEWER = { ...HQ, id: 'hq-new', titleEn: 'Newest news', media: [] };
+    mockFetch({
+      'GET /api/me/headquarters-posts': () => ({ body: { items: [NEWER] } }),
+      'GET /api/me/headquarters-posts/hq-old': () => ({ body: OLD }),
+      'GET /api/me/headquarters-posts/hq-old/comments': () => ({ body: { items: [], hasMore: false } }),
+    });
+    render(
+      <MemoryRouter>
+        <HeadquartersPosts variant="feed" openId="hq-old" />
+      </MemoryRouter>,
+    );
+    await waitFor(() => expect(document.querySelectorAll('[id^="hq-post-"]')).toHaveLength(2));
+    const cards = Array.from(document.querySelectorAll('[id^="hq-post-"]'));
+    expect(cards[0].id).toBe('hq-post-hq-old');
+    expect(cards[0]).toHaveTextContent('An older teaching');
+    // It is opened (the full post is asked for).
+    await waitFor(() => expect(calls.some((c) => c.url === '/api/me/headquarters-posts/hq-old')).toBe(true));
+  });
+});

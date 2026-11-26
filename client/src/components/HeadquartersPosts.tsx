@@ -62,7 +62,7 @@ interface CommentRow {
 // variant="feed" (member Updates page) shows each post as a full post card
 // with the start of the message and its photo; the default "list" keeps the
 // compact list used on the dashboards.
-export function HeadquartersPosts({ variant = 'list' }: { variant?: 'list' | 'feed' } = {}) {
+export function HeadquartersPosts({ variant = 'list', openId }: { variant?: 'list' | 'feed'; /** A post to show first, already open (a shared link opened by a member). */ openId?: string | null } = {}) {
   const { t, i18n } = useTranslation();
   const [loading, setLoading] = useState(true);
   const [items, setItems] = useState<HeadquartersPostRow[]>([]);
@@ -95,9 +95,19 @@ export function HeadquartersPosts({ variant = 'list' }: { variant?: 'list' | 'fe
   useEffect(() => {
     api
       .get<{ items: HeadquartersPostRow[] }>('/api/me/headquarters-posts')
-      .then((res) => {
-        setItems(res.items);
+      .then(async (res) => {
+        let list = res.items;
+        // A shared post opened by a member: it comes first, open, even when it is older than the first page of posts.
+        if (openId) {
+          const found = list.find((p) => p.id === openId) ?? (await api.get<HeadquartersPostRow>(`/api/me/headquarters-posts/${openId}`).catch(() => null));
+          if (found) list = [found, ...list.filter((p) => p.id !== openId)];
+        }
+        setItems(list);
         setLoading(false);
+        if (openId && list[0]?.id === openId) {
+          openPost(openId);
+          window.setTimeout(() => document.getElementById(`hq-post-${openId}`)?.scrollIntoView?.({ behavior: 'smooth', block: 'start' }), 50);
+        }
       })
       .catch(() => {
         setError(t('headquartersPosts.load_failed'));
@@ -229,8 +239,8 @@ export function HeadquartersPosts({ variant = 'list' }: { variant?: 'list' | 'fe
     return (
       <section className="space-y-2 sm:space-y-4" aria-label={t('headquartersPosts.title') ?? ''}>
         {items.map((i) => (
+          <div key={i.id} id={`hq-post-${i.id}`} className="scroll-mt-16">
           <HeadquartersFeedCard
-            key={i.id}
             item={i}
             expanded={selectedId === i.id}
             detail={selectedId === i.id ? detail : null}
@@ -261,6 +271,7 @@ export function HeadquartersPosts({ variant = 'list' }: { variant?: 'list' | 'fe
               )
             }
           />
+          </div>
         ))}
       </section>
     );

@@ -11,11 +11,11 @@ vi.mock('../lib/MemberAuthContext', () => ({
 const json = (body: unknown, status = 200) => Promise.resolve({ ok: status < 300, status, headers: { get: () => 'application/json' }, json: async () => body });
 afterEach(() => vi.unstubAllGlobals());
 
-describe('A shared post opened by a signed-in member', () => {
-  it('offers to go into the community', async () => {
-    vi.stubGlobal('fetch', vi.fn((url: string) => (String(url).includes('/api/shared/') ? json({ kind: 'post', id: 'p1', title: { en: 'Good news', fr: 'Bonne nouvelle' }, body: { en: 'Come.', fr: 'Venez.' }, author: 'The God Nation', publishedAt: null, mediaCount: 0, embed: null, more: [] }) : json({ content: {} }))));
+describe('A shared announcement opened by a signed-in member', () => {
+  it('shows it whole and offers to go into the community', async () => {
+    vi.stubGlobal('fetch', vi.fn((url: string) => (String(url).includes('/api/shared/') ? json({ kind: 'announcement', id: 'p1', title: { en: 'Good news', fr: 'Bonne nouvelle' }, body: { en: 'Come.', fr: 'Venez.' }, author: 'The God Nation', publishedAt: null, mediaCount: 0, embed: null, more: [] }) : json({ content: {} }))));
     render(
-      <MemoryRouter initialEntries={['/news/post/p1']}>
+      <MemoryRouter initialEntries={['/news/announcement/p1']}>
         <Routes>
           <Route path="/news/:kind/:id" element={<SharedPostPage />} />
         </Routes>

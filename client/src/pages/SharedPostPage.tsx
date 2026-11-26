@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { Link, useParams } from 'react-router-dom';
+import { Link, Navigate, useLocation, useParams } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { PageShell } from '../components/PageShell';
 import { RichText } from '../lib/richText';
@@ -7,6 +7,7 @@ import { SocialEmbed, type SocialEmbedInfo } from '../components/updates/SocialE
 import { api } from '../lib/api';
 import { useDocumentMeta } from '../lib/useDocumentMeta';
 import { useMemberAuth } from '../lib/MemberAuthContext';
+import { previewOf, rememberPostToReturnTo } from '../lib/sharedPreview';
 
 interface Bi {
   en: string;
@@ -25,12 +26,15 @@ interface SharedItem {
   more: { kind: 'post' | 'announcement' | 'update'; id: string; title: Bi }[];
 }
 
-// A post or announcement the central admin shared by link (https://thegodnationacademy.org/news/post/<id>). Anyone can read
-// the words without signing in; photos, comments and the rest stay inside the app, and the page invites the reader to join.
+// A post or announcement the central admin shared by link (https://thegodnationacademy.org/news/post/<id>). A member who opens a
+// central post's link goes straight into the app, to the Home page with that post first and open; other shared items they read here
+// in full. A visitor who is not a member reads the first half (never fewer than two paragraphs), then is invited to join to read the
+// rest; after joining or signing in they are brought back to it (a member then lands on the Home page as above).
 export function SharedPostPage() {
   const { t, i18n } = useTranslation();
   const { kind, id } = useParams();
-  const { member } = useMemberAuth();
+  const { member, loading: authLoading } = useMemberAuth();
+  const { pathname } = useLocation();
   const lang: 'en' | 'fr' = i18n.language.startsWith('fr') ? 'fr' : 'en';
   const [item, setItem] = useState<SharedItem | null>(null);
   const [state, setState] = useState<'loading' | 'ready' | 'closed'>('loading');
@@ -52,6 +56,9 @@ export function SharedPostPage() {
   }, [kind, id]);
 
   useDocumentMeta(item ? item.title[lang] : t('shareLink.page_fallback'), item ? item.body[lang].slice(0, 160) : '');
+
+  // A member: a central post opens where it lives in the app (Home), with its photos, comments and reactions.
+  if (member && !authLoading && kind === 'post' && id) return <Navigate to={`/member/updates?open=${encodeURIComponent(id)}`} replace />;
 
   return (
     <PageShell>
@@ -83,8 +90,34 @@ export function SharedPostPage() {
                   ))}
                 </div>
               )}
-              <RichText text={item.body[lang]} headings comfort className="mt-5 text-base leading-relaxed text-slate-800" data-testid="shared-body" />
-              {item.embed && (
+              {(() => {
+                // Members (and anyone while it is still being checked whether they are signed in) read it all.
+                const preview = member || authLoading ? { shown: item.body[lang], cut: false } : previewOf(item.body[lang]);
+                if (!preview.cut) return <RichText text={item.body[lang]} headings comfort className="mt-5 text-base leading-relaxed text-slate-800" data-testid="shared-body" />;
+                return (
+                  <>
+                    <div className="relative">
+                      <RichText text={preview.shown} headings comfort className="mt-5 text-base leading-relaxed text-slate-800" data-testid="shared-body" />
+                      <div aria-hidden className="pointer-events-none absolute inset-x-0 bottom-0 h-24 bg-gradient-to-b from-slate-50/0 to-slate-50" />
+                    </div>
+                    <section className="mt-4 rounded-2xl border-2 border-gold-400 bg-white p-6 text-center shadow-lg" data-testid="shared-continue">
+                      <p className="text-3xl" aria-hidden>📖</p>
+                      <h2 className="mt-2 text-xl font-bold text-brand-900">{t('shareLink.continue_title')}</h2>
+                      <p className="mt-2 text-slate-700">{t('shareLink.continue_text')}</p>
+                      <Link to="/member/join" onClick={() => rememberPostToReturnTo(pathname)} className="mt-4 inline-block rounded-xl bg-brand-700 px-6 py-3 text-lg font-bold text-white no-underline shadow" data-testid="shared-continue-join">
+                        {t('shareLink.continue_join')}
+                      </Link>
+                      <p className="mt-4 text-sm text-slate-600">
+                        {t('shareLink.have_account')}{' '}
+                        <Link to="/member/login" onClick={() => rememberPostToReturnTo(pathname)} className="font-semibold text-brand-700 underline" data-testid="shared-continue-signin">
+                          {t('shareLink.continue_signin')}
+                        </Link>
+                      </p>
+                    </section>
+                  </>
+                );
+              })()}
+              {item.embed && (member || authLoading || !previewOf(item.body[lang]).cut) && (
                 <div className="mt-5">
                   <SocialEmbed embed={item.embed} />
                 </div>
@@ -107,11 +140,11 @@ export function SharedPostPage() {
                   <>
                     <h2 className="text-xl font-bold text-gold-400">{t('shareLink.join_title')}</h2>
                     <p className="mt-2 text-white/90">{t('shareLink.join_text')}</p>
-                    <Link to="/member/join" className="mt-4 inline-block rounded-xl bg-gold-400 px-6 py-3 text-lg font-bold text-brand-900 no-underline shadow" data-testid="shared-cta">
+                    <Link to="/member/join" onClick={() => rememberPostToReturnTo(pathname)} className="mt-4 inline-block rounded-xl bg-gold-400 px-6 py-3 text-lg font-bold text-brand-900 no-underline shadow" data-testid="shared-cta">
                       {t('shareLink.cta')}
                     </Link>
                     <p className="mt-5 text-sm text-white/80">{t('shareLink.have_account')}</p>
-                    <Link to="/member/login" className="mt-2 inline-block rounded-xl border-2 border-white/70 px-6 py-3 font-bold text-white no-underline" data-testid="shared-signin">
+                    <Link to="/member/login" onClick={() => rememberPostToReturnTo(pathname)} className="mt-2 inline-block rounded-xl border-2 border-white/70 px-6 py-3 font-bold text-white no-underline" data-testid="shared-signin">
                       {t('shareLink.sign_in_enter')}
                     </Link>
                   </>
