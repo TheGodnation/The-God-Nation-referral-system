@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { PageShell } from '../components/PageShell';
 import { NotificationBell } from '../components/NotificationBell';
@@ -23,6 +23,7 @@ import { groupMetaKey, membershipsKey } from '../lib/chatCache';
 import { useMemberAuth } from '../lib/MemberAuthContext';
 import { DraftPreview, useChatDraft } from '../components/chat/DraftTag';
 import { plainPreview } from '../lib/richText';
+import { takePostToReturnTo } from '../lib/sharedPreview';
 
 interface MembershipRow {
   communityId: string;
@@ -131,6 +132,12 @@ function GroupRow({ m, onUnread }: { m: MembershipRow; onUnread?: (communityId: 
 export function MemberChatsPage() {
   const { t } = useTranslation();
   const { member } = useMemberAuth();
+  const navigate = useNavigate();
+  // Someone who joined (or signed in) from a shared post's "Join to continue" goes back to finish reading it, once.
+  useEffect(() => {
+    const back = takePostToReturnTo();
+    if (back) navigate(back, { replace: true });
+  }, [navigate]);
   const ownerId = member?.personId;
   const [memberships, setMemberships] = useState<MembershipRow[] | null>(null);
 
