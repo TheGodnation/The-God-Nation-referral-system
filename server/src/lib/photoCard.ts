@@ -1,6 +1,8 @@
 // Makes a shared post's picture the right size for where it is shown. WhatsApp shows a link card's picture only when it is small
-// (about 300 KB), and Facebook wants about 1200x630, so the card picture is always cut to exactly that, whatever the original size
-// or shape. The pictures on the shared page are scaled down too, so the page opens quickly on a phone.
+// (about 300 KB), and Facebook wants about 1200x630, so the card picture is always exactly that size, whatever the original size or
+// shape. Nothing of the picture is cut off: the whole picture is fitted in the middle, and the space around it (on the sides of a
+// tall flyer, above and below a wide photo) is filled with a soft, blurred copy of the same picture. The pictures on the shared page
+// are scaled down too, so the page opens quickly on a phone.
 // The image tool (sharp) is loaded only when needed; if it cannot be loaded the server still runs and the old behaviour is used.
 
 type SharpFactory = (input?: Buffer) => {
@@ -8,6 +10,10 @@ type SharpFactory = (input?: Buffer) => {
   resize(options: { width?: number; height?: number; fit?: 'cover' | 'inside'; withoutEnlargement?: boolean }): ReturnType<SharpFactory>;
   jpeg(options: { quality: number; mozjpeg?: boolean }): ReturnType<SharpFactory>;
   flatten(options: { background: string }): ReturnType<SharpFactory>;
+  blur(sigma: number): ReturnType<SharpFactory>;
+  modulate(options: { brightness?: number }): ReturnType<SharpFactory>;
+  composite(images: { input: Buffer; gravity?: string }[]): ReturnType<SharpFactory>;
+  png(): ReturnType<SharpFactory>;
   toBuffer(): Promise<Buffer>;
   metadata(): Promise<{ width?: number; height?: number }>;
 };
@@ -36,14 +42,21 @@ const CARD_TARGET_BYTES = 280 * 1024;
 /** A picture bigger than this is not even opened (it would take too much memory). */
 export const MAX_INPUT_BYTES = 25 * 1024 * 1024;
 
-/** The picture as a 1200x630 JPEG of at most about 280 KB (cut from the middle, turned the right way up). Null when it cannot be done. */
+/**
+ * The picture as a 1200x630 JPEG of at most about 280 KB, turned the right way up, with the WHOLE picture showing (fitted in the
+ * middle on a blurred copy of itself). Null when it cannot be done.
+ */
 export async function cardJpeg(input: Buffer): Promise<Buffer | null> {
   const sharp = await getSharp();
   if (!sharp || input.length > MAX_INPUT_BYTES) return null;
   try {
+    // The background: the picture stretched over the whole card, blurred and a little darker, so the real picture stands out.
+    const background = await sharp(input).rotate().flatten({ background: '#ffffff' }).resize({ width: CARD_WIDTH, height: CARD_HEIGHT, fit: 'cover' }).blur(28).modulate({ brightness: 0.8 }).png().toBuffer();
+    // The whole picture, as large as fits.
+    const whole = await sharp(input).rotate().flatten({ background: '#ffffff' }).resize({ width: CARD_WIDTH, height: CARD_HEIGHT, fit: 'inside' }).png().toBuffer();
     let out: Buffer = Buffer.alloc(0);
     for (const quality of [80, 68, 56, 45]) {
-      out = await sharp(input).rotate().flatten({ background: '#ffffff' }).resize({ width: CARD_WIDTH, height: CARD_HEIGHT, fit: 'cover' }).jpeg({ quality, mozjpeg: true }).toBuffer();
+      out = await sharp(background).composite([{ input: whole, gravity: 'center' }]).jpeg({ quality, mozjpeg: true }).toBuffer();
       if (out.length <= CARD_TARGET_BYTES) break;
     }
     return out;

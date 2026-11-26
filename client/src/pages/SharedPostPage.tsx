@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { Link, Navigate, useLocation, useParams } from 'react-router-dom';
+import { Link, useLocation, useParams } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { PageShell } from '../components/PageShell';
 import { RichText } from '../lib/richText';
@@ -26,10 +26,11 @@ interface SharedItem {
   more: { kind: 'post' | 'announcement' | 'update'; id: string; title: Bi }[];
 }
 
-// A post or announcement the central admin shared by link (https://thegodnationacademy.org/news/post/<id>). A member who opens a
-// central post's link goes straight into the app, to the Home page with that post first and open; other shared items they read here
-// in full. A visitor who is not a member reads the first half (never fewer than two paragraphs), then is invited to join to read the
-// rest; after joining or signing in they are brought back to it (a member then lands on the Home page as above).
+// A post or announcement shared by link (https://thegodnationacademy.org/news/post/<id>). A member reads all of it here, and at the
+// end is invited into the Headquarters assembly, where everyone is, for the latest news. A visitor who is not a member reads the
+// first half (never fewer than two paragraphs), then is invited to join to read the rest; after joining or signing in they are
+// brought back to it. Inside Facebook's (or Instagram's) own browser on Android, which never knows that someone is signed in, a
+// member can open the page in Chrome, where they are.
 export function SharedPostPage() {
   const { t, i18n } = useTranslation();
   const { kind, id } = useParams();
@@ -57,8 +58,23 @@ export function SharedPostPage() {
 
   useDocumentMeta(item ? item.title[lang] : t('shareLink.page_fallback'), item ? item.body[lang].slice(0, 160) : '');
 
-  // A member: a central post opens where it lives in the app (Home), with its photos, comments and reactions.
-  if (member && !authLoading && kind === 'post' && id) return <Navigate to={`/member/updates?open=${encodeURIComponent(id)}`} replace />;
+  // Where a member is sent at the end: the Headquarters assembly (generation 0), or Chats when it cannot be found.
+  const [hqPath, setHqPath] = useState('/member/chats');
+  useEffect(() => {
+    if (!member) return;
+    let alive = true;
+    api
+      .get<{ items: { communityId: string; generation?: number | null; status?: string }[] }>('/api/member/me/community-memberships')
+      .then((r) => {
+        const hq = r?.items?.find((m) => m.generation === 0);
+        if (alive && hq) setHqPath(`/member/chats/group/${hq.communityId}`);
+      })
+      .catch(() => {});
+    return () => {
+      alive = false;
+    };
+  }, [member]);
+  const chromeLink = openInChromeLink();
 
   return (
     <PageShell>
@@ -113,6 +129,14 @@ export function SharedPostPage() {
                           {t('shareLink.continue_signin')}
                         </Link>
                       </p>
+                      {chromeLink && (
+                        <div className="mt-4 rounded-xl bg-brand-50 p-3 text-sm text-brand-900" data-testid="shared-open-chrome">
+                          <p>{t('shareLink.in_app_browser')}</p>
+                          <a href={chromeLink} className="mt-2 inline-block rounded-lg border-2 border-brand-700 px-4 py-2 font-semibold text-brand-800 no-underline">
+                            {t('shareLink.open_in_chrome')}
+                          </a>
+                        </div>
+                      )}
                     </section>
                   </>
                 );
@@ -131,9 +155,10 @@ export function SharedPostPage() {
               <section className="mt-8 rounded-2xl bg-gradient-to-b from-brand-800 to-brand-900 p-6 text-center text-white shadow-lg" data-testid="shared-join">
                 {member ? (
                   <>
-                    <h2 className="text-xl font-bold text-gold-400">{t('shareLink.member_title')}</h2>
-                    <Link to="/member/chats" className="mt-4 inline-block rounded-xl bg-gold-400 px-6 py-3 text-lg font-bold text-brand-900 no-underline shadow" data-testid="shared-enter">
-                      {t('shareLink.enter')}
+                    <h2 className="text-xl font-bold text-gold-400">{t('shareLink.hq_title')}</h2>
+                    <p className="mt-2 text-white/90">{t('shareLink.hq_text')}</p>
+                    <Link to={hqPath} className="mt-4 inline-block rounded-xl bg-gold-400 px-6 py-3 text-lg font-bold text-brand-900 no-underline shadow" data-testid="shared-enter">
+                      🏛️ {t('shareLink.hq_button')}
                     </Link>
                   </>
                 ) : (
@@ -171,4 +196,18 @@ export function SharedPostPage() {
       </div>
     </PageShell>
   );
+}
+
+/**
+ * Inside Facebook's, Messenger's or Instagram's own browser on an Android phone, a link that opens this same page in Chrome (where
+ * a member is signed in). Elsewhere: null.
+ */
+export function openInChromeLink(ua: string = typeof navigator === 'undefined' ? '' : navigator.userAgent, href: string = typeof window === 'undefined' ? '' : window.location.href): string | null {
+  if (!/Android/i.test(ua) || !/FBAN|FBAV|FB_IAB|FBIOS|Instagram|Messenger/i.test(ua)) return null;
+  try {
+    const url = new URL(href);
+    return `intent://${url.host}${url.pathname}${url.search}#Intent;scheme=https;package=com.android.chrome;S.browser_fallback_url=${encodeURIComponent(url.href)};end`;
+  } catch {
+    return null;
+  }
 }

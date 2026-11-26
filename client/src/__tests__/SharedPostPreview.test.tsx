@@ -1,7 +1,7 @@
 import { describe, it, expect, vi, afterEach, beforeEach } from 'vitest';
-import { render, screen, fireEvent } from '@testing-library/react';
+import { render, screen, fireEvent, waitFor } from '@testing-library/react';
 import { MemoryRouter, Route, Routes, useLocation } from 'react-router-dom';
-import { SharedPostPage } from '../pages/SharedPostPage';
+import { SharedPostPage, openInChromeLink } from '../pages/SharedPostPage';
 import { previewOf, rememberPostToReturnTo, takePostToReturnTo } from '../lib/sharedPreview';
 
 // A shared post opened by someone who is not a member: they read the beginning, then are invited to join to read the rest, and are
@@ -95,11 +95,20 @@ describe('A long shared post opened by a visitor', () => {
     expect(takePostToReturnTo()).toBe('/news/post/p1');
   });
 
-  it('takes a member straight to the post on the Home page, already open', async () => {
+  it('lets a member read all of it, then invites them into the Headquarters assembly', async () => {
     auth.member = { personId: 'p-me' };
+    vi.stubGlobal('fetch', vi.fn((url: string) => {
+      if (String(url).includes('/api/shared/')) return json(ITEM);
+      if (String(url).includes('/api/member/me/community-memberships')) return json({ items: [{ communityId: 'gen1', generation: 1 }, { communityId: 'hq-id', generation: 0 }] });
+      return json({ content: {} });
+    }));
     page();
-    expect(await screen.findByTestId('where')).toHaveTextContent('/member/updates?open=p1');
+    expect(await screen.findByTestId('shared-body')).toHaveTextContent('Paragraph 6.');
     expect(screen.queryByTestId('shared-continue')).toBeNull();
+    const enter = screen.getByTestId('shared-enter');
+    expect(enter).toHaveTextContent('Visit the Headquarters assembly');
+    await waitFor(() => expect(enter).toHaveAttribute('href', '/member/chats/group/hq-id'));
+    expect(screen.getByTestId('shared-join')).toHaveTextContent('For the latest news');
   });
 
   it('does not decide before it knows whether the reader is signed in (no half page flashing for a member)', async () => {
@@ -107,5 +116,18 @@ describe('A long shared post opened by a visitor', () => {
     page();
     expect(await screen.findByTestId('shared-body')).toHaveTextContent('Paragraph 6.');
     expect(screen.queryByTestId('shared-continue')).toBeNull();
+  });
+});
+
+describe('Open in Chrome (inside Facebook’s browser, which never knows a member is signed in)', () => {
+  const FB = 'Mozilla/5.0 (Linux; Android 13; SM-A135F) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/130.0 Mobile Safari/537.36 [FB_IAB/FB4A;FBAV/480.0.0.40.109;]';
+  it('gives a link that opens the same page in Chrome, on Android inside Facebook', () => {
+    expect(openInChromeLink(FB, 'https://thegodnationacademy.org/news/post/p1')).toBe(
+      'intent://thegodnationacademy.org/news/post/p1#Intent;scheme=https;package=com.android.chrome;S.browser_fallback_url=https%3A%2F%2Fthegodnationacademy.org%2Fnews%2Fpost%2Fp1;end',
+    );
+  });
+  it('offers nothing in Chrome itself, in WhatsApp’s window, or on an iPhone', () => {
+    expect(openInChromeLink('Mozilla/5.0 (Linux; Android 13) AppleWebKit/537.36 Chrome/130.0 Mobile Safari/537.36', 'https://x.org/news/post/p1')).toBeNull();
+    expect(openInChromeLink('Mozilla/5.0 (iPhone; CPU iPhone OS 17_0 like Mac OS X) AppleWebKit/605.1.15 [FBAN/FBIOS;FBAV/480.0]', 'https://x.org/news/post/p1')).toBeNull();
   });
 });
