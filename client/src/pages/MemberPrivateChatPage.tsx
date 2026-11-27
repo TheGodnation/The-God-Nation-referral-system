@@ -6,6 +6,7 @@ import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react
 import { Link, useParams } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { api, ApiError, NetworkError, RequestCancelled } from '../lib/api';
+import { AUTO_OLDER_RETRY_MS, nearTop, notFilled } from '../lib/autoOlder';
 import { refreshAfterSend } from '../lib/chatRefresh';
 import { loadThread, saveThread } from '../lib/chatCache';
 import { isOfflineError } from '../lib/offlineStore';
@@ -94,6 +95,9 @@ export function MemberPrivateChatPage() {
   const [offlineCopy, setOfflineCopy] = useState(false);
   const [hasMore, setHasMore] = useState(false);
   const [loadingOlder, setLoadingOlder] = useState(false);
+  // Older pages open by themselves while scrolling up (see lib/autoOlder.ts).
+  const olderBusy = useRef(false);
+  const olderFailedAt = useRef(0);
   const [replyTo, setReplyTo] = useState<ChatMessage | null>(null);
   const [menuFor, setMenuFor] = useState<ChatMessage | null>(null);
   // Who reacted to a message (tapping its reactions).
@@ -291,8 +295,17 @@ export function MemberPrivateChatPage() {
 
   function onScroll() {
     const el = scrollRef.current;
-    if (el) stickToBottom.current = el.scrollHeight - el.scrollTop - el.clientHeight < 120;
+    if (!el) return;
+    stickToBottom.current = el.scrollHeight - el.scrollTop - el.clientHeight < 120;
+    if (loaded && hasMore && nearTop(el)) loadOlder(true);
   }
+
+  // A chat whose messages do not fill the screen cannot be scrolled up: bring in older ones by themselves until it does.
+  useEffect(() => {
+    const el = scrollRef.current;
+    if (el && loaded && hasMore && notFilled(el)) loadOlder(true);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [messages, hasMore, loaded]);
 
   /** Loads one page of older messages; false when there is nothing older. */
   function loadOlderPage(): Promise<boolean> {
@@ -310,12 +323,20 @@ export function MemberPrivateChatPage() {
     });
   }
 
-  function loadOlder() {
-    if (loadingOlder || !messages.some((m) => !m.pending)) return;
+  function loadOlder(auto = false) {
+    if (olderBusy.current || !messages.some((m) => !m.pending)) return;
+    if (auto && Date.now() - olderFailedAt.current < AUTO_OLDER_RETRY_MS) return;
+    olderBusy.current = true;
     setLoadingOlder(true);
     loadOlderPage()
-      .catch(() => showToast(t('groupChat.load_failed')))
-      .finally(() => setLoadingOlder(false));
+      .catch(() => {
+        olderFailedAt.current = Date.now();
+        if (!auto) showToast(t('groupChat.load_failed'));
+      })
+      .finally(() => {
+        olderBusy.current = false;
+        setLoadingOlder(false);
+      });
   }
 
   function openSearchResult(id: string) {
@@ -604,7 +625,7 @@ export function MemberPrivateChatPage() {
         )}
         {hasMore && (
           <div className="mb-3 text-center">
-            <button type="button" onClick={loadOlder} disabled={loadingOlder} className="rounded-full bg-white px-3 py-1 text-xs text-slate-600 shadow">
+            <button type="button" onClick={() => loadOlder()} disabled={loadingOlder} className="rounded-full bg-white px-3 py-1 text-xs text-slate-600 shadow" data-testid="load-older">
               {loadingOlder ? t('groupChat.loading') : t('groupChat.load_older')}
             </button>
           </div>
