@@ -229,3 +229,24 @@ describe('when the microphone cannot be opened, the member is told the real reas
     ua.mockRestore();
   });
 });
+
+describe('double-checking a blocked microphone with the browser’s own permission', () => {
+  afterEach(() => {
+    Object.defineProperty(navigator, 'permissions', { configurable: true, value: undefined });
+  });
+  const err = (name: string) => Object.assign(new Error(name), { name });
+
+  it('treats any error as "blocked" when the browser says the permission is denied (some browsers use another name for it)', async () => {
+    Object.defineProperty(navigator, 'permissions', { configurable: true, value: { query: async () => ({ state: 'denied' }) } });
+    const { explainMicProblem } = await import('../lib/voiceCapture');
+    expect(await explainMicProblem(err('NotSupportedError'))).toEqual({ problem: 'denied', permission: 'denied' });
+  });
+
+  it('keeps the error’s own reason when the permission is not denied, or cannot be checked', async () => {
+    Object.defineProperty(navigator, 'permissions', { configurable: true, value: { query: async () => ({ state: 'granted' }) } });
+    const { explainMicProblem } = await import('../lib/voiceCapture');
+    expect(await explainMicProblem(err('NotReadableError'))).toEqual({ problem: 'busy', permission: 'granted' });
+    Object.defineProperty(navigator, 'permissions', { configurable: true, value: undefined });
+    expect(await explainMicProblem(err('NotFoundError'))).toEqual({ problem: 'none', permission: null });
+  });
+});

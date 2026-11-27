@@ -44,10 +44,30 @@ export function micProblemKey(problem: MicProblem): string {
   return 'groupChat.mic_other';
 }
 
+/** What the browser itself says about the microphone permission ('granted', 'denied', 'prompt'), or null when it cannot tell. */
+async function micPermissionState(): Promise<string | null> {
+  try {
+    const status = await navigator.permissions?.query({ name: 'microphone' as PermissionName });
+    return status?.state ?? null;
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * The reason, double-checked: some browsers report a blocked microphone under another name, so when the browser's own permission
+ * says "denied", it is treated as blocked whatever the error said.
+ */
+export async function explainMicProblem(err: unknown): Promise<{ problem: MicProblem; permission: string | null }> {
+  const first = micProblem(err);
+  const permission = await micPermissionState();
+  return { problem: permission === 'denied' ? 'denied' : first, permission };
+}
+
 /** Tells the server (it only logs it) what went wrong with the microphone, so a problem on a member's phone can be seen. */
-export function reportMicProblem(err: unknown, where: 'chat' | 'teaching'): void {
+export function reportMicProblem(err: unknown, where: 'chat' | 'teaching', permission?: string | null): void {
   const e = err as { name?: string; message?: string } | null;
-  reportClientError('mic', { message: `${where}: ${e?.name ?? 'Error'}: ${e?.message ?? String(err)}` });
+  reportClientError('mic', { message: `${where}: ${e?.name ?? 'Error'}: ${e?.message ?? String(err)} (permission: ${permission ?? 'unknown'})` });
 }
 
 const wait = (ms: number) => new Promise((r) => setTimeout(r, ms));
