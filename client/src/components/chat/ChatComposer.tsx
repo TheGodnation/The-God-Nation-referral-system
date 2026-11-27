@@ -14,7 +14,7 @@ import {
   type UploadedAttachment,
   type UploadProblem,
 } from '../../lib/chatMedia';
-import { chatBitrate, enhanceMic, openMic, type EnhancedMic } from '../../lib/voiceCapture';
+import { chatBitrate, enhanceMic, micProblem, micProblemKey, openMic, reportMicProblem, type EnhancedMic } from '../../lib/voiceCapture';
 import { VideoRecorder } from './VideoRecorder';
 import { MediaPreview } from './MediaPreview';
 import { ReplyQuote } from './MessageBubble';
@@ -382,8 +382,10 @@ export function ChatComposer({
     let stream: MediaStream;
     try {
       stream = await openMic();
-    } catch {
-      setError(t('groupChat.mic_denied'));
+    } catch (err) {
+      // The real reason, not always "blocked": refused, busy with another app (a call), no microphone, or something else.
+      setError(t(micProblemKey(micProblem(err))));
+      reportMicProblem(err, 'chat');
       return false;
     }
     // What is recorded is the voice after a gentle clean-up (even, loud, never crackling) at a better quality than before; the

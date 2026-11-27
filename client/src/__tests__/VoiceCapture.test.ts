@@ -185,3 +185,47 @@ describe('cleaning up the voice before it is recorded', () => {
     vi.useRealTimers();
   });
 });
+
+describe('when the microphone cannot be opened, the member is told the real reason', () => {
+  const err = (name: string) => Object.assign(new Error(name), { name });
+
+  it('tries once more, a moment later, when the microphone is only busy', async () => {
+    let n = 0;
+    const gum = mic(async () => {
+      n += 1;
+      if (n === 1) throw err('NotReadableError');
+      return rawStream;
+    });
+    expect(await openMic()).toBe(rawStream);
+    expect(gum).toHaveBeenCalledTimes(2);
+  });
+
+  it('does not ask again after a refusal', async () => {
+    const gum = mic(async () => {
+      throw err('NotAllowedError');
+    });
+    await expect(openMic()).rejects.toMatchObject({ name: 'NotAllowedError' });
+    expect(gum).toHaveBeenCalledTimes(1);
+  });
+
+  it('names each kind of problem: refused, busy (a call or another app), no microphone, or something else', async () => {
+    const { micProblem, micProblemKey } = await import('../lib/voiceCapture');
+    expect(micProblem(err('NotAllowedError'))).toBe('denied');
+    expect(micProblem(err('SecurityError'))).toBe('denied');
+    expect(micProblem(err('NotReadableError'))).toBe('busy');
+    expect(micProblem(err('AbortError'))).toBe('busy');
+    expect(micProblem(err('NotFoundError'))).toBe('none');
+    expect(micProblem(new Error('strange'))).toBe('other');
+    expect(micProblemKey('denied')).toBe('groupChat.mic_denied');
+    expect(micProblemKey('busy')).toBe('groupChat.mic_busy');
+    expect(micProblemKey('none')).toBe('groupChat.mic_none');
+    expect(micProblemKey('other')).toBe('groupChat.mic_other');
+  });
+
+  it('inside another app’s browser (a link opened in WhatsApp), a refusal says to open it in Chrome or the installed app', async () => {
+    const ua = vi.spyOn(navigator, 'userAgent', 'get').mockReturnValue('Mozilla/5.0 (Linux; Android 13) WhatsApp/2.24');
+    const { micProblemKey } = await import('../lib/voiceCapture');
+    expect(micProblemKey('denied')).toBe('groupChat.mic_in_app');
+    ua.mockRestore();
+  });
+});
