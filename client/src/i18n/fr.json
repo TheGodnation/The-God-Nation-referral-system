@@ -2794,6 +2794,7 @@
       "reminders_b": "Programmes",
       "yes": "Oui, activer les notifications",
       "then_allow": "Puis touchez « Autoriser »",
+      "look_for_question": "Vous ne voyez pas la question ? Sur un ordinateur, regardez en haut de votre navigateur, à côté de l’adresse du site : cliquez sur la cloche 🔔 et choisissez « Autoriser ». Ou touchez « Pas maintenant » et activez-les plus tard.",
       "not_now": "Pas maintenant"
   },
   "groupInfo": {

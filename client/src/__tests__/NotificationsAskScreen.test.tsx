@@ -8,7 +8,7 @@ vi.mock('../lib/push', () => ({
   prefetchPushKey: async () => ({ configured: true, publicKey: 'k' }),
 }));
 
-import { NotificationsAskScreen, ASK_AGAIN_AFTER_MS } from '../components/member/NotificationsAskScreen';
+import { NotificationsAskScreen, ASK_AGAIN_AFTER_MS, LOOK_FOR_QUESTION_AFTER_MS } from '../components/member/NotificationsAskScreen';
 
 beforeEach(() => {
   localStorage.clear();
@@ -32,6 +32,42 @@ describe('Asking to turn on notifications (full screen)', () => {
     fireEvent.click(screen.getByTestId('notify-ask-yes'));
     await waitFor(() => expect(screen.queryByTestId('notify-ask')).toBeNull());
     expect(push.enable).toHaveBeenCalledTimes(1);
+  });
+
+  it('goes away the moment "Allow" is given, without waiting for the connection to finish', async () => {
+    push.enable.mockImplementation((opts: { onGranted?: () => void }) => {
+      opts.onGranted?.();
+      return new Promise(() => {}); // still connecting behind it
+    });
+    render(<NotificationsAskScreen />);
+    fireEvent.click(await screen.findByTestId('notify-ask-yes'));
+    await waitFor(() => expect(screen.queryByTestId('notify-ask')).toBeNull());
+  });
+
+  it('shows where to find the browser’s question when it is not answered after a few seconds (a computer shows only a small bell)', async () => {
+    push.enable.mockImplementation(() => new Promise(() => {})); // the "Allow?" question is still waiting
+    render(<NotificationsAskScreen />);
+    const yes = await screen.findByTestId('notify-ask-yes');
+    vi.useFakeTimers();
+    try {
+      fireEvent.click(yes);
+      expect(screen.queryByTestId('notify-ask-look')).toBeNull();
+      await vi.advanceTimersByTimeAsync(LOOK_FOR_QUESTION_AFTER_MS + 50);
+      expect(screen.getByTestId('notify-ask-look')).toHaveTextContent('next to the web address');
+      // "Not now" still works while it waits
+      fireEvent.click(screen.getByTestId('notify-ask-later'));
+      expect(screen.queryByTestId('notify-ask')).toBeNull();
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it('says it did not work, rather than turning for ever, when connecting fails', async () => {
+    push.enable.mockResolvedValue({ ok: false, reason: 'failed' });
+    render(<NotificationsAskScreen />);
+    fireEvent.click(await screen.findByTestId('notify-ask-yes'));
+    expect(await screen.findByRole('alert')).toHaveTextContent('Could not turn on notifications');
+    expect(screen.getByTestId('notify-ask-yes')).not.toBeDisabled();
   });
 
   it('"Not now" closes it, and it does not come back for a week', async () => {

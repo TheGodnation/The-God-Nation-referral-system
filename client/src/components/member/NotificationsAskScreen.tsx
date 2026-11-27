@@ -1,8 +1,11 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { checkPushOnThisDevice, enablePushNotifications, prefetchPushKey } from '../../lib/push';
 
 const KEY = 'godnation:notifyAsk:last';
+/** When the browser's own "Allow?" question has not been answered after this long, the member is shown where to find it (a
+ * computer's browser often shows it only as a small bell next to the web address). */
+export const LOOK_FOR_QUESTION_AFTER_MS = 5000;
 /** After "Not now", the screen comes back at most once a week until notifications are on. */
 export const ASK_AGAIN_AFTER_MS = 7 * 24 * 60 * 60 * 1000;
 
@@ -31,6 +34,11 @@ export function NotificationsAskScreen() {
   const [show, setShow] = useState(false);
   const [busy, setBusy] = useState(false);
   const [failed, setFailed] = useState(false);
+  const [lookHint, setLookHint] = useState(false);
+  const hintTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  useEffect(() => () => {
+    if (hintTimer.current) clearTimeout(hintTimer.current);
+  }, []);
 
   useEffect(() => {
     const last = lastAsked();
@@ -58,8 +66,22 @@ export function NotificationsAskScreen() {
   async function yes() {
     setBusy(true);
     setFailed(false);
-    const result = await enablePushNotifications();
+    setLookHint(false);
+    hintTimer.current = setTimeout(() => setLookHint(true), LOOK_FOR_QUESTION_AFTER_MS);
+    let closed = false;
+    // The moment "Allow" is given the screen goes away: connecting this device finishes behind it (if that fails, the notifications
+    // bar on the Chats page offers it again, and an allowed device is reconnected quietly on the next visit).
+    const result = await enablePushNotifications({
+      onGranted: () => {
+        closed = true;
+        if (hintTimer.current) clearTimeout(hintTimer.current);
+        close();
+      },
+    });
+    if (hintTimer.current) clearTimeout(hintTimer.current);
+    if (closed) return;
     setBusy(false);
+    setLookHint(false);
     if (result.ok || result.reason === 'denied') close();
     else setFailed(true);
   }
@@ -99,6 +121,11 @@ export function NotificationsAskScreen() {
         </ul>
         <div className="mt-auto pt-10">
           {failed && <p role="alert" className="mb-3 text-center text-sm text-red-700">{t('notifications.enable_failed')}</p>}
+          {busy && lookHint && (
+            <p className="mb-3 rounded-lg bg-amber-50 px-3 py-2 text-center text-sm text-amber-900" data-testid="notify-ask-look">
+              {t('notifyAsk.look_for_question')}
+            </p>
+          )}
           <button type="button" className="w-full rounded-xl bg-brand-700 px-4 py-4 text-lg font-bold text-white shadow-lg shadow-brand-900/20 disabled:opacity-60" disabled={busy} onClick={() => void yes()} data-testid="notify-ask-yes">
             {busy ? t('notifications.enabling') : t('notifyAsk.yes')}
           </button>
