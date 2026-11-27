@@ -1,5 +1,7 @@
 import { insertNoiseGate } from './noiseGate';
 import { voiceProcessingOn } from './voiceSettings';
+import { isInAppBrowser } from './installPrompt';
+import { reportClientError } from './reportError';
 
 // (The clean-up is switched off, see voiceSettings: the plain microphone is recorded, with the phone's own voice cleaner, at 64 kbps.)
 // Recording a clear, loud voice note. The microphone is opened with the phone's own voice clean-up switched on (noise reduction, echo
@@ -17,8 +19,55 @@ export const teachingBitrate = (): number => VOICE_BITRATE;
 
 const VOICE_CONSTRAINTS: MediaTrackConstraints = { echoCancellation: true, noiseSuppression: true, autoGainControl: true, channelCount: 1 };
 
-/** Opens the microphone for a voice note. A refusal (no permission) is passed on; a phone that does not know the extra settings gets the plain microphone. */
+/**
+ * Why the microphone could not be opened, so the member is told the real reason (not always "blocked"):
+ *  - denied: the permission was refused (by the person, or by the app the page is opened in, e.g. a link opened inside WhatsApp)
+ *  - busy:   another app is using the microphone (a call, a WhatsApp voice note, a recorder) or the phone could not start it
+ *  - none:   no microphone was found
+ *  - other:  anything else
+ */
+export type MicProblem = 'denied' | 'busy' | 'none' | 'other';
+
+export function micProblem(err: unknown): MicProblem {
+  const name = (err as { name?: string } | null)?.name ?? '';
+  if (name === 'NotAllowedError' || name === 'PermissionDeniedError' || name === 'SecurityError') return 'denied';
+  if (name === 'NotReadableError' || name === 'TrackStartError' || name === 'AbortError') return 'busy';
+  if (name === 'NotFoundError' || name === 'DevicesNotFoundError' || name === 'OverconstrainedError') return 'none';
+  return 'other';
+}
+
+/** The message (translation key) for a microphone that could not be opened. */
+export function micProblemKey(problem: MicProblem): string {
+  if (problem === 'denied') return isInAppBrowser() ? 'groupChat.mic_in_app' : 'groupChat.mic_denied';
+  if (problem === 'busy') return 'groupChat.mic_busy';
+  if (problem === 'none') return 'groupChat.mic_none';
+  return 'groupChat.mic_other';
+}
+
+/** Tells the server (it only logs it) what went wrong with the microphone, so a problem on a member's phone can be seen. */
+export function reportMicProblem(err: unknown, where: 'chat' | 'teaching'): void {
+  const e = err as { name?: string; message?: string } | null;
+  reportClientError('mic', { message: `${where}: ${e?.name ?? 'Error'}: ${e?.message ?? String(err)}` });
+}
+
+const wait = (ms: number) => new Promise((r) => setTimeout(r, ms));
+
+/**
+ * Opens the microphone for a voice note. A refusal (no permission) is passed on; a phone that does not know the extra settings gets
+ * the plain microphone. When the microphone is only busy (it was still being let go by the last recording, or the phone was slow to
+ * start it), it is tried once more a moment later before giving up.
+ */
 export async function openMic(): Promise<MediaStream> {
+  try {
+    return await openMicOnce();
+  } catch (err) {
+    if (micProblem(err) !== 'busy') throw err;
+    await wait(600);
+    return openMicOnce();
+  }
+}
+
+async function openMicOnce(): Promise<MediaStream> {
   const devices = navigator.mediaDevices;
   // As before the tuning: the plain microphone.
   if (!voiceProcessingOn()) return devices.getUserMedia({ audio: true });

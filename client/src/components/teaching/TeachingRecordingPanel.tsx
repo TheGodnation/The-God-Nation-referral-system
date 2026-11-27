@@ -2,7 +2,7 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { api, ApiError } from '../../lib/api';
 import { baseMime, pickRecorderMime } from '../../lib/chatMedia';
-import { enhanceMic, openMic, teachingBitrate } from '../../lib/voiceCapture';
+import { enhanceMic, micProblem, micProblemKey, openMic, reportMicProblem, teachingBitrate } from '../../lib/voiceCapture';
 import { slotLabel } from './teachingTypes';
 
 type Status = 'RECORDED' | 'WRITING' | 'TEXT_READY' | 'FAILED' | 'APPROVED' | 'POSTED';
@@ -172,8 +172,15 @@ function WeekRecording({ week, groupChosen, onChanged }: { week: RecordingWeek; 
 
   async function start() {
     setError('');
+    let stream: MediaStream;
     try {
-      const stream = await openMic();
+      stream = await openMic();
+    } catch (err) {
+      setError(t(micProblemKey(micProblem(err))));
+      reportMicProblem(err, 'teaching');
+      return;
+    }
+    try {
       const mime = pickRecorderMime('audio');
       const enhanced = enhanceMic(stream);
       const bitrate = teachingBitrate();
@@ -195,8 +202,11 @@ function WeekRecording({ week, groupChosen, onChanged }: { week: RecordingWeek; 
       setRecording(true);
       // The time shown leaves out the paused stretches.
       timer.current = window.setInterval(() => setSeconds((sec) => (recorder.current?.state === 'paused' ? sec : sec + 1)), 1000);
-    } catch {
+    } catch (err) {
+      // The microphone opened but the recording could not start: let go of the microphone so the next try finds it free.
+      stream.getTracks().forEach((tr) => tr.stop());
       setError(t('teachingRecording.no_microphone'));
+      reportMicProblem(err, 'teaching');
     }
   }
   // Pause keeps what was recorded so far; Continue carries on in the same recording; Stop ends it.
