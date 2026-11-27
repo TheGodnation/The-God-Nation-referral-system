@@ -14,7 +14,7 @@ import {
   type UploadedAttachment,
   type UploadProblem,
 } from '../../lib/chatMedia';
-import { chatBitrate, enhanceMic, micProblem, micProblemKey, openMic, reportMicProblem, type EnhancedMic } from '../../lib/voiceCapture';
+import { chatBitrate, enhanceMic, explainMicProblem, micProblemKey, openMic, reportMicProblem, type EnhancedMic } from '../../lib/voiceCapture';
 import { VideoRecorder } from './VideoRecorder';
 import { MediaPreview } from './MediaPreview';
 import { ReplyQuote } from './MessageBubble';
@@ -384,8 +384,9 @@ export function ChatComposer({
       stream = await openMic();
     } catch (err) {
       // The real reason, not always "blocked": refused, busy with another app (a call), no microphone, or something else.
-      setError(t(micProblemKey(micProblem(err))));
-      reportMicProblem(err, 'chat');
+      const { problem, permission } = await explainMicProblem(err);
+      setError(t(micProblemKey(problem)));
+      reportMicProblem(err, 'chat', permission);
       return false;
     }
     // What is recorded is the voice after a gentle clean-up (even, loud, never crackling) at a better quality than before; the

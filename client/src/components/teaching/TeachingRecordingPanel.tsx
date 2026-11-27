@@ -2,7 +2,7 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { api, ApiError } from '../../lib/api';
 import { baseMime, pickRecorderMime } from '../../lib/chatMedia';
-import { enhanceMic, micProblem, micProblemKey, openMic, reportMicProblem, teachingBitrate } from '../../lib/voiceCapture';
+import { enhanceMic, explainMicProblem, micProblemKey, openMic, reportMicProblem, teachingBitrate } from '../../lib/voiceCapture';
 import { slotLabel } from './teachingTypes';
 
 type Status = 'RECORDED' | 'WRITING' | 'TEXT_READY' | 'FAILED' | 'APPROVED' | 'POSTED';
@@ -176,8 +176,9 @@ function WeekRecording({ week, groupChosen, onChanged }: { week: RecordingWeek; 
     try {
       stream = await openMic();
     } catch (err) {
-      setError(t(micProblemKey(micProblem(err))));
-      reportMicProblem(err, 'teaching');
+      const { problem, permission } = await explainMicProblem(err);
+      setError(t(micProblemKey(problem)));
+      reportMicProblem(err, 'teaching', permission);
       return;
     }
     try {

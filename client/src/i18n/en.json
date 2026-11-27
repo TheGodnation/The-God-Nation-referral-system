@@ -2566,7 +2566,7 @@
     "mic_none": "No microphone was found on this device. If you use earphones with a microphone, plug them in again, then try again.",
     "mic_other": "The microphone could not start. Close the app completely, open it again, then tap the microphone.",
     "mic_in_app": "This page is open inside another app (WhatsApp, Facebook…), which does not let it use the microphone. Tap ⋮ at the top and choose “Open in Chrome”, or open the installed God Nation app, then try again.",
-    "mic_denied": "The microphone is blocked on this phone. To allow it: tap the lock 🔒 beside the address › Permissions › Microphone › Allow, then try again. In the installed app: hold its icon › App info › Permissions › Microphone › Allow.",
+    "mic_denied": "The microphone is blocked for The God Nation. To allow it: 1) Open Chrome › ⋮ › Settings › Site settings › Microphone › thegodnationacademy.org › Allow. 2) Also check the phone: Settings › Apps › Chrome › Permissions › Microphone › Allow. This also unblocks the installed app. Then close the app, open it again and tap the microphone.",
     "camera_denied": "The camera is blocked on this phone. To allow it: tap the lock 🔒 beside the address › Permissions › Camera › Allow, then try again. In the installed app: hold its icon › App info › Permissions › Camera › Allow.",
     "no_recording": "Recording doesn't work in this browser. Please update your browser or use Chrome.",
     "video_title": "Record a video",
