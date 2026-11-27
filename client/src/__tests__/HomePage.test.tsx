@@ -13,7 +13,7 @@ describe('HomePage', () => {
       vi.fn().mockResolvedValue({
         ok: true,
         headers: { get: () => 'application/json' },
-        json: async () => ({ content: {}, youtubeUrl: 'https://youtube.com/@godnation' }),
+        json: async () => ({ content: {}, youtubeUrl: 'https://youtube.com/@godnation', facebookUrl: 'https://facebook.com/godnation' }),
       }),
     );
   });
@@ -61,7 +61,7 @@ describe('HomePage', () => {
     expect(await screen.findByText(/Allez dans les espaces des médias numériques/)).toBeInTheDocument();
   });
 
-  it('shows ten "Discover The God Nation" slides after the motto and before the community section, in English and French, ending with the invitation to join', async () => {
+  it('shows ten "Discover The God Nation" slides after the motto, then "Learn. Grow. Lead." with the way in, in English and French', async () => {
     const { container } = show();
     const slides = screen.getByTestId('discover-slides');
     expect(slides.querySelectorAll('article')).toHaveLength(10);
@@ -69,10 +69,20 @@ describe('HomePage', () => {
     expect(screen.getByRole('heading', { level: 3, name: 'Get trained. Get equipped. Get certified.' })).toBeInTheDocument();
     expect(screen.getByRole('heading', { level: 3, name: 'You have a place. You have a role. Join the movement!' })).toBeInTheDocument();
     expect(screen.getByText('Reach. Train. Send. Multiply. Impact nations.')).toBeInTheDocument();
-    // Order on the page: motto, then the slides, then "Real people…".
+    // Order on the page: motto, then the slides, then straight to "Learn. Grow. Lead." ("Our Community" is gone).
     const motto = screen.getByTestId('about-motto');
     expect(motto.compareDocumentPosition(slides) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
-    expect(slides.compareDocumentPosition(container.querySelector('#community')!) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    expect(container.querySelector('#community')).toBeNull();
+    expect(screen.queryByText('Real people. Genuine faith. Lasting relationships.')).toBeNull();
+    const leadership = container.querySelector('#leadership')!;
+    expect(slides.compareDocumentPosition(leadership) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    const way = within(leadership as HTMLElement).getByTestId('leadership-join');
+    expect(within(way).getByRole('link', { name: /Join the Community/ })).toHaveAttribute('href', '/member/join');
+    expect(within(way).getByRole('link', { name: /Existing Members — Sign In/ })).toHaveAttribute('href', '/member/login');
+    // The three small lines under the top buttons are gone, and the digital evangelism slide says "after your training".
+    expect(screen.queryByText('Grow in Faith')).toBeNull();
+    expect(screen.queryByText('Reach the World')).toBeNull();
+    expect(screen.getByText('After your training, join our team using modern media to spread the Gospel and reach people online.')).toBeInTheDocument();
     // The last slide carries only the two buttons the home page always has: join, and sign in. No WhatsApp button.
     const last = screen.getByTestId('discover-slide-12');
     expect(within(last).getByRole('link', { name: /Join the Community/ })).toHaveAttribute('href', '/member/join');
@@ -119,9 +129,10 @@ describe('HomePage', () => {
     expect(screen.getAllByRole('link', { name: /Rejoindre la communauté/ }).length).toBeGreaterThanOrEqual(3);
   });
 
-  it('shows the social links the admin has set', async () => {
+  it('shows the social links the admin has set, except YouTube', async () => {
     show();
-    expect(await screen.findByRole('link', { name: 'YouTube' })).toHaveAttribute('href', 'https://youtube.com/@godnation');
+    expect(await screen.findByRole('link', { name: 'Facebook' })).toHaveAttribute('href', 'https://facebook.com/godnation');
+    expect(screen.queryByRole('link', { name: 'YouTube' })).toBeNull();
   });
 
   it('never shows referral or commission details', () => {

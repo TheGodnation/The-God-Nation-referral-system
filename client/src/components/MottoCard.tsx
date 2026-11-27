@@ -2,11 +2,12 @@ import { useTranslation } from 'react-i18next';
 
 // Our motto, set apart as one gold statement on a deep-blue panel with a faint
 // globe behind it. Shown on the About page and on the public Home page.
-export function MottoCard() {
+/** `flush`: edge to edge on a phone, with no rounded corners (the home page, where it sits close against the pictures). */
+export function MottoCard({ flush = false }: { flush?: boolean }) {
   const { t } = useTranslation();
   return (
     <article
-      className="relative overflow-hidden rounded-xl border border-gold-400/70 bg-gradient-to-br from-brand-950 via-brand-900 to-brand-800 px-6 py-9 text-center shadow-lg"
+      className={`relative overflow-hidden border-gold-400/70 bg-gradient-to-br from-brand-950 via-brand-900 to-brand-800 px-6 py-9 text-center shadow-lg ${flush ? 'border-y sm:rounded-xl sm:border' : 'rounded-xl border'}`}
       aria-labelledby="about-motto"
       data-testid="about-motto"
     >

@@ -5,27 +5,10 @@ import { PageShell } from '../components/PageShell';
 import { ContinueIfSignedIn } from '../components/ContinueIfSignedIn';
 import { StayConnected } from '../components/StayConnected';
 import { usePublicSettings } from '../lib/usePublicSettings';
-import {
-  GraduationCapIcon,
-  OpenBookIcon,
-  HeartHandsIcon,
-  UsersIcon,
-  GlobeIcon,
-  SproutIcon,
-  CompassIcon,
-} from '../components/Icons';
+import { GraduationCapIcon, GlobeIcon } from '../components/Icons';
 import { SOCIAL_ICONS, configuredSocials } from '../components/socialPlatforms';
 import { MottoCard } from '../components/MottoCard';
 import { DiscoverSlides } from '../components/DiscoverSlides';
-
-type IconType = (p: { className?: string }) => JSX.Element;
-
-const VALUES: { n: number; Icon: IconType }[] = [
-  { n: 1, Icon: CompassIcon },
-  { n: 2, Icon: SproutIcon },
-  { n: 3, Icon: HeartHandsIcon },
-  { n: 4, Icon: GlobeIcon },
-];
 
 function Label({ children, light = false }: { children: ReactNode; light?: boolean }) {
   return (
@@ -51,13 +34,14 @@ function JoinButton({ className = '' }: { className?: string }) {
 export function HomePage() {
   const { t } = useTranslation();
   const settings = usePublicSettings();
-  const socials = configuredSocials(settings);
+  // YouTube is not listed on the home page (the founder's choice).
+  const socials = configuredSocials(settings).filter((s) => s.key !== 'youtube');
 
   return (
     <ContinueIfSignedIn>
     <PageShell homeNav>
       {/* Hero */}
-      <section id="top" className="relative overflow-hidden bg-gradient-to-br from-brand-950 via-brand-900 to-brand-800 px-4 py-16 text-white sm:py-24">
+      <section id="top" className="relative overflow-hidden bg-gradient-to-br from-brand-950 via-brand-900 to-brand-800 px-4 pb-10 pt-12 text-white sm:py-20">
         <div aria-hidden className="pointer-events-none absolute -right-24 -top-24 h-[30rem] w-[30rem] rounded-full bg-gold-400/20 blur-3xl" />
         <div aria-hidden className="pointer-events-none absolute -bottom-32 -left-16 h-80 w-80 rounded-full bg-brand-500/30 blur-3xl" />
         {/* Our own logo (never a stand-in). */}
@@ -76,65 +60,36 @@ export function HomePage() {
               {t('homePage.sign_in')}
             </Link>
           </div>
-          <ul className="mt-10 flex flex-wrap gap-x-6 gap-y-3 text-sm text-brand-100">
-            <li className="flex items-center gap-2">
-              <OpenBookIcon className="h-5 w-5 text-gold-400" /> {t('homePage.chip_faith')}
-            </li>
-            <li className="flex items-center gap-2">
-              <UsersIcon className="h-5 w-5 text-gold-400" /> {t('homePage.chip_lead')}
-            </li>
-            <li className="flex items-center gap-2">
-              <GlobeIcon className="h-5 w-5 text-gold-400" /> {t('homePage.chip_world')}
-            </li>
-          </ul>
         </div>
       </section>
 
-      {/* Our motto */}
-      <section id="motto" className="scroll-mt-16 bg-slate-50 px-4 py-12 sm:py-16">
+      {/* Our motto: close up against the top and the pictures, the way the pictures sit against one another (no gaps). */}
+      <section id="motto" className="scroll-mt-16 bg-white pt-1 sm:px-4 sm:pt-4">
         <div className="mx-auto max-w-3xl">
-          <MottoCard />
+          <MottoCard flush />
         </div>
       </section>
 
       {/* Right after the motto: twelve slides, one under the other, each a different side of the movement (no heading of its own) */}
-      <section id="offer" className="scroll-mt-16 bg-white px-4 py-10 sm:py-14">
+      <section id="offer" className="scroll-mt-16 bg-white px-4 py-1 sm:py-4">
         <div className="mx-auto max-w-3xl">
           <DiscoverSlides />
         </div>
       </section>
 
-      {/* Community */}
-      <section id="community" className="scroll-mt-16 border-t border-slate-100 bg-white px-4 py-14 sm:py-20">
-        <div className="mx-auto grid max-w-6xl gap-10 lg:grid-cols-2 lg:items-center">
-          <div>
-            <Label>{t('homePage.community_label')}</Label>
-            <h2 className="mt-3 text-3xl font-extrabold tracking-tight text-brand-900 sm:text-4xl">{t('homePage.community_title')}</h2>
-            <p className="mt-4 text-slate-600">{t('homePage.community_body')}</p>
-            <JoinButton className="mt-6" />
-          </div>
-          <ul className="grid grid-cols-2 gap-4">
-            {VALUES.map(({ n, Icon }) => (
-              <li key={n} className="rounded-2xl bg-brand-50 p-5">
-                <Icon className="h-7 w-7 text-brand-700" />
-                <span className="mt-3 block font-semibold text-brand-900">{t(`homePage.value_${n}_t`)}</span>
-                <span className="block text-sm text-slate-600">{t(`homePage.value_${n}_b`)}</span>
-              </li>
-            ))}
-          </ul>
-        </div>
-      </section>
-
-      {/* Learn. Grow. Lead. */}
-      <section id="leadership" className="scroll-mt-16 bg-slate-50 px-4 py-14 sm:py-20">
+      {/* Learn. Grow. Lead. — right after the last picture, with the way in */}
+      <section id="leadership" className="scroll-mt-16 bg-slate-50 px-4 py-10 sm:py-14">
         <div className="mx-auto grid max-w-6xl gap-8 lg:grid-cols-[1.4fr_1fr] lg:items-center">
           <div>
             <Label>{t('homePage.leadership_label')}</Label>
             <h2 className="mt-3 text-3xl font-extrabold tracking-tight text-brand-900 sm:text-4xl">{t('homePage.leadership_title')}</h2>
             <p className="mt-4 text-slate-600">{t('homePage.leadership_body')}</p>
-            <Link to="/member/join" className="mt-5 inline-block font-semibold text-brand-700 hover:underline">
-              {t('homePage.leadership_link')} →
-            </Link>
+            <div className="mt-6 flex flex-col gap-3 sm:flex-row" data-testid="leadership-join">
+              <JoinButton />
+              <Link to="/member/login" className="inline-flex items-center justify-center rounded-lg border border-brand-700 px-6 py-3 font-semibold text-brand-700 hover:bg-brand-50">
+                {t('homePage.sign_in')}
+              </Link>
+            </div>
           </div>
           <div className="flex items-center gap-4 rounded-2xl bg-gradient-to-br from-brand-900 to-brand-700 p-6 text-white">
             <GraduationCapIcon className="h-12 w-12 shrink-0 text-gold-400" />
@@ -144,7 +99,7 @@ export function HomePage() {
       </section>
 
       {/* Global mission */}
-      <section id="mission" className="scroll-mt-16 bg-gradient-to-br from-brand-900 to-brand-950 px-4 py-14 text-white sm:py-20">
+      <section id="mission" className="scroll-mt-16 bg-gradient-to-br from-brand-900 to-brand-950 px-4 py-10 text-white sm:py-14">
         <div className="mx-auto grid max-w-6xl gap-8 lg:grid-cols-[1.4fr_1fr] lg:items-center">
           <div>
             <Label light>{t('homePage.mission_label')}</Label>
@@ -162,12 +117,12 @@ export function HomePage() {
       </section>
 
       {/* Not ready to join: leave a number */}
-      <section className="bg-slate-50 px-4 py-12">
+      <section className="bg-slate-50 px-4 py-8">
         <StayConnected />
       </section>
 
       {/* Final invitation */}
-      <section className="bg-white px-4 py-16 text-center">
+      <section className="bg-white px-4 py-10 text-center">
         <div className="mx-auto max-w-2xl">
           <h2 className="text-2xl font-extrabold tracking-tight text-brand-900 sm:text-3xl">{t('homePage.final_title')}</h2>
           <p className="mt-3 text-slate-600">{t('homePage.final_body')}</p>
