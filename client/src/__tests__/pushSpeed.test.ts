@@ -60,6 +60,21 @@ describe('turning on notifications is quick', () => {
     expect(await enablePushNotifications()).toEqual({ ok: true });
     expect(registration.pushManager.subscribe).toHaveBeenCalledTimes(2);
   });
+
+  it('never keeps turning for ever: a browser that stays silent is given up on after the time limit, and the member is told', async () => {
+    vi.useFakeTimers();
+    try {
+      const { registration } = setup(async () => ({}));
+      registration.pushManager.subscribe = vi.fn(() => new Promise(() => {})); // the computer's browser never answers
+      const { enablePushNotifications, CONNECT_LIMIT_MS } = await import('../lib/push');
+      let result: unknown = null;
+      void enablePushNotifications().then((r) => (result = r));
+      await vi.advanceTimersByTimeAsync(CONNECT_LIMIT_MS + 100);
+      expect(result).toEqual({ ok: false, reason: 'failed' });
+    } finally {
+      vi.useRealTimers();
+    }
+  });
 });
 
 describe('a phone that allowed notifications but lost its subscription', () => {

@@ -1,8 +1,9 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { api } from '../../lib/api';
 import { useTranslation } from 'react-i18next';
 import { GuideLink } from './GuideLink';
 import { enablePushNotifications, checkPushOnThisDevice, prefetchPushKey, type PushDeviceStatus } from '../../lib/push';
+import { LOOK_FOR_QUESTION_AFTER_MS } from './NotificationsAskScreen';
 
 const DISMISS_KEY = 'notifyBannerDismissed';
 const VISIT_KEY = 'notifyBannerVisit'; // sessionStorage: '1' = shown during this visit, '0' = rests during this visit
@@ -69,6 +70,12 @@ export function EnableNotificationsBanner({ className = 'mb-4', rule = 'twiceWee
   const [status, setStatus] = useState<PushDeviceStatus | null>(null);
   const [busy, setBusy] = useState(false);
   const [failed, setFailed] = useState(false);
+  // Shown when the browser's "Allow?" question is not answered after a few seconds (on a computer it can be just a small bell).
+  const [lookHint, setLookHint] = useState(false);
+  const hintTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  useEffect(() => () => {
+    if (hintTimer.current) clearTimeout(hintTimer.current);
+  }, []);
   // Whether this visit may show it (decided once the device is known not to have notifications yet).
   const [visitOk, setVisitOk] = useState(rule === 'always');
 
@@ -102,8 +109,18 @@ export function EnableNotificationsBanner({ className = 'mb-4', rule = 'twiceWee
   async function enable() {
     setBusy(true);
     setFailed(false);
+    setLookHint(false);
+    hintTimer.current = setTimeout(() => setLookHint(true), LOOK_FOR_QUESTION_AFTER_MS);
     // The moment "Allow" is tapped the banner says done; the network part finishes behind it, and if that fails it comes back with the message.
-    const result = await enablePushNotifications({ onGranted: () => setStatus('subscribed') });
+    const result = await enablePushNotifications({
+      onGranted: () => {
+        if (hintTimer.current) clearTimeout(hintTimer.current);
+        setLookHint(false);
+        setStatus('subscribed');
+      },
+    });
+    if (hintTimer.current) clearTimeout(hintTimer.current);
+    setLookHint(false);
     setBusy(false);
     if (result.ok) {
       setStatus('subscribed');
@@ -137,6 +154,7 @@ export function EnableNotificationsBanner({ className = 'mb-4', rule = 'twiceWee
           {message}
         </p>
         {failed && <p className="mt-1 text-xs text-red-700">{t('notifications.enable_failed')}</p>}
+        {busy && lookHint && <p className="mt-1 text-xs text-amber-900" data-testid="enable-notifications-look">{t('notifyAsk.look_for_question')}</p>}
         <div className="mt-1 flex items-center gap-3">
           {canTurnOn && (
             <button type="button" disabled={busy} className="btn-primary whitespace-nowrap px-3 py-1.5 text-sm disabled:opacity-60" onClick={() => void enable()}>

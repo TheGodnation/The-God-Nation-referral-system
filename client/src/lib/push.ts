@@ -68,6 +68,10 @@ function withTimeout<T>(promise: Promise<T>, ms: number): Promise<T> {
  * dialog is open, and `onGranted` fires the moment the member taps Allow, so
  * the screen can say "on" at once while the (slower, network-bound) subscription
  * finishes in the background. If that finishing fails, the result says so. */
+/** Once "Allow" is given, connecting this device never takes longer than this: past it the member is told it did not work, so a
+ * button never keeps turning for ever (a browser on a computer can stay silent instead of failing). */
+export const CONNECT_LIMIT_MS = 30000;
+
 export async function enablePushNotifications(opts: { onGranted?: () => void } = {}): Promise<EnablePushResult> {
   if (!pushSupported()) return { ok: false, reason: 'unsupported' };
 
@@ -80,6 +84,14 @@ export async function enablePushNotifications(opts: { onGranted?: () => void } =
   opts.onGranted?.();
 
   try {
+    return await withTimeout(connect(keyRequest), CONNECT_LIMIT_MS);
+  } catch {
+    return { ok: false, reason: 'failed' };
+  }
+}
+
+async function connect(keyRequest: Promise<{ configured: boolean; publicKey: string | null }>): Promise<EnablePushResult> {
+  {
     const { configured, publicKey } = await keyRequest;
     if (!configured || !publicKey) return { ok: false, reason: 'not_configured' };
 
@@ -88,21 +100,22 @@ export async function enablePushNotifications(opts: { onGranted?: () => void } =
     if (!subscription) {
       const options = { userVisibleOnly: true, applicationServerKey: urlBase64ToUint8Array(publicKey) as BufferSource };
       try {
-        subscription = await withTimeout(registration.pushManager.subscribe(options), 25000);
+        subscription = await withTimeout(registration.pushManager.subscribe(options), 15000);
       } catch {
         // One more try: a first attempt on a slow network often fails only because it was slow.
-        subscription = await withTimeout(registration.pushManager.subscribe(options), 25000);
+        subscription = await withTimeout(registration.pushManager.subscribe(options), 12000);
       }
     }
     const json = subscription.toJSON();
-    await api.post('/api/notifications/push/subscribe', {
-      endpoint: json.endpoint,
-      keys: json.keys,
-      userAgent: navigator.userAgent,
-    });
+    await withTimeout(
+      api.post('/api/notifications/push/subscribe', {
+        endpoint: json.endpoint,
+        keys: json.keys,
+        userAgent: navigator.userAgent,
+      }),
+      15000,
+    );
     return { ok: true };
-  } catch {
-    return { ok: false, reason: 'failed' };
   }
 }
 

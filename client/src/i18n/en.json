@@ -2794,6 +2794,7 @@
       "reminders_b": "Programs",
       "yes": "Yes, turn on notifications",
       "then_allow": "Then tap “Allow”",
+      "look_for_question": "Don’t see the question? On a computer, look at the top of your browser, next to the web address: click the bell 🔔 there and choose “Allow”. Or tap “Not now” and turn them on later.",
       "not_now": "Not now"
   },
   "groupInfo": {
